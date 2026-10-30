@@ -4,6 +4,11 @@ React components for [genui](https://github.com/AD1TYA03/genui). Pair it with th
 
 > Community project. Not affiliated with or endorsed by Thesys. Built on OpenUI's MIT-licensed renderer (`@openuidev/*`).
 
+<p align="center">
+  <a href="https://genui-py.vercel.app/wander"><img alt="Wander: a Gemini agent booking a stay, rendered with genui-react" src="https://raw.githubusercontent.com/AD1TYA03/genui/main/assets/wander.gif" width="760"></a>
+  <br><sub>A real run: Python agent (genui-py) → React (genui-react). <a href="https://genui-py.vercel.app">Live demo</a></sub>
+</p>
+
 ## Install
 
 ```bash
@@ -85,6 +90,10 @@ Props: `response: string | null`, `library?`, `onAction?`, `isStreaming?`, `init
 - Types: `GenUIChatProps`, `GenUIRendererProps`, `GenUILLMOptions`, `GenUILLM`, `GenUIFormat`, `GenUILibrary`, `GenUIActionEvent`, `GenUITheme`, `GenUIThemeProps`, `GenUIStarter`, `GenUIStorage`, `GenUIMessage`, `GenUIThread`, `GenUIComponentProps`, `GenUIPromptOptions`, `GenUIRestStorageOptions`.
 
 Import from `genui-react`, not from `@openuidev/*` directly. The internals may change in later versions.
+
+## Dev tools
+
+OpenUI's renderer normally adds its "OpenUI Inspect" widget in development. genui-react keeps it off. To turn it on, set `globalThis.GENUI_OPENUI_DEVTOOLS = true` before importing `genui-react`.
 
 ## Telemetry
 

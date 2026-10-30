@@ -2,6 +2,9 @@
 // Built on OpenUI's MIT-licensed renderer (@openuidev/*). Depend on this
 // package's exports, not on @openuidev directly; internals may change.
 
+// OpenUI's dev-only Inspect widget is switched off by dist/devtools.js, which the build
+// prepends as the first import of dist/index.js (see tsup.config.ts).
+
 export { GenUIChat, type GenUIChatProps } from "./GenUIChat";
 export { GenUIRenderer, type GenUIRendererProps } from "./GenUIRenderer";
 export { genuiLLM, type GenUIFormat, type GenUILLM, type GenUILLMOptions } from "./llm";

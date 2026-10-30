@@ -10,7 +10,7 @@ from .prompt import system_prompt
 from .run import RunInput, parse_run_input
 from .stream import encode, normalize
 
-__version__ = "0.1.1"
+__version__ = "0.1.2"
 
 __all__ = [
     "Library", "LibraryError", "RunInput", "build_message", "encode", "normalize", "parse_message",

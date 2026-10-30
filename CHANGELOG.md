@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.2 — 2026-10-31
+
+- README shows a real end-to-end run of the Wander example instead of screenshots. No code changes.
+
 ## 0.1.1 — 2026-10-31
 
 - Streams from LangGraph (`stream_mode="messages"` tuples), the OpenAI Agents SDK and OpenAI Responses tool calls now work; LangChain tool results become tool events instead of leaking into the UI text.

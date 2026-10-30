@@ -15,13 +15,10 @@
 **Generative UI for Python agents.** Your Python backend streams [OpenUI Lang](https://www.openui.com/docs/openui-lang/overview); your React app renders it as live cards, tables, forms and charts with OpenUI's open-source renderer.
 
 <p align="center">
-  <a href="https://genui-py.vercel.app"><b>Live demo &amp; playground</b></a> ·
-  <a href="https://genui-py.vercel.app/gallery">Gallery</a> ·
+  <a href="https://genui-py.vercel.app"><b>Live demo</b></a> ·
   <a href="https://pypi.org/project/genui-py/">PyPI</a> ·
   <a href="https://www.npmjs.com/package/genui-react">npm</a>
 </p>
-
-<p align="center"><img alt="A UI streaming in token by token" src="https://raw.githubusercontent.com/AD1TYA03/genui/main/assets/demo.gif" width="760"></p>
 
 ## See it in action: Wander
 
