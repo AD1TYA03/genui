@@ -1,0 +1,32 @@
+[
+  {
+    "id": "travel-booking",
+    "title": "Travel booking",
+    "file": "travel-booking.oui"
+  },
+  {
+    "id": "product-comparison",
+    "title": "Product comparison",
+    "file": "product-comparison.oui"
+  },
+  {
+    "id": "analytics-dashboard",
+    "title": "Analytics dashboard",
+    "file": "analytics-dashboard.oui"
+  },
+  {
+    "id": "appointment-form",
+    "title": "Appointment form",
+    "file": "appointment-form.oui"
+  },
+  {
+    "id": "support-triage",
+    "title": "Support ticket triage",
+    "file": "support-triage.oui"
+  },
+  {
+    "id": "recipe-card",
+    "title": "Recipe card",
+    "file": "recipe-card.oui"
+  }
+]

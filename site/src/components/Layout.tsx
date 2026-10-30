@@ -5,9 +5,8 @@ import { GithubIcon } from "./icons";
 import { Wordmark } from "./Logo";
 
 const NAV = [
-  { to: "/gallery", label: "Gallery" },
-  { to: "/playground", label: "Playground" },
   { to: "/wander", label: "Wander" },
+  { to: "/playground", label: "Playground" },
 ];
 
 function Nav() {
@@ -128,9 +127,8 @@ function Footer() {
         <div>
           <h3 className="mb-3 text-xs font-semibold uppercase tracking-[0.14em] text-dim">Explore</h3>
           <ul className="space-y-2 text-sm">
-            <li><NavLink className="text-muted hover:text-fg" to="/gallery">Gallery</NavLink></li>
-            <li><NavLink className="text-muted hover:text-fg" to="/playground">Playground</NavLink></li>
             <li><NavLink className="text-muted hover:text-fg" to="/wander">Wander demo</NavLink></li>
+            <li><NavLink className="text-muted hover:text-fg" to="/playground">Playground</NavLink></li>
             <li><a className="text-muted hover:text-fg" href={LINKS.example} target="_blank" rel="noreferrer">FastAPI + React example</a></li>
           </ul>
         </div>

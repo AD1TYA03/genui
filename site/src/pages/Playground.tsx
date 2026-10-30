@@ -6,7 +6,7 @@ import { BoltIcon, CheckIcon, ShareIcon } from "../components/icons";
 import { LazyFrame } from "../components/LazyFrame";
 import { useCopy } from "../components/useCopy";
 import { LINKS } from "../lib/links";
-import { getRecording, recordings } from "../lib/recordings";
+import { examples, getExample } from "../lib/examples";
 import { encodeProgram, readHashProgram } from "../lib/share";
 import { useTitle } from "../lib/useTitle";
 
@@ -22,7 +22,7 @@ interface LangError {
 }
 
 function initialProgram(exampleId: string | null) {
-  return readHashProgram() ?? (getRecording(exampleId) ?? recordings[0]).source;
+  return readHashProgram() ?? (getExample(exampleId) ?? examples[0]).source;
 }
 
 export default function Playground() {
@@ -30,7 +30,7 @@ export default function Playground() {
   const [params, setParams] = useSearchParams();
   const [code, setCode] = useState(() => initialProgram(params.get("example")));
   const [exampleId, setExampleId] = useState(() =>
-    readHashProgram() ? "" : (getRecording(params.get("example")) ?? recordings[0]).id,
+    readHashProgram() ? "" : (getExample(params.get("example")) ?? examples[0]).id,
   );
   const deferred = useDeferredValue(code);
   const [errors, setErrors] = useState<LangError[]>([]);
@@ -42,7 +42,7 @@ export default function Playground() {
   useEffect(() => {
     window.clearTimeout(hashTimer.current);
     hashTimer.current = window.setTimeout(() => {
-      const ex = exampleId ? getRecording(exampleId) : undefined;
+      const ex = exampleId ? getExample(exampleId) : undefined;
       const url = new URL(window.location.href);
       url.hash = ex && ex.source === code ? "" : `code=${encodeProgram(code)}`;
       window.history.replaceState(window.history.state, "", url);
@@ -51,7 +51,7 @@ export default function Playground() {
   }, [code, exampleId]);
 
   const pickExample = (id: string) => {
-    const rec = getRecording(id);
+    const rec = getExample(id);
     if (!rec) return;
     setExampleId(id);
     setCode(rec.source);
@@ -73,7 +73,7 @@ export default function Playground() {
     return set;
   }, [errors, code]);
 
-  const isExample = !!exampleId && getRecording(exampleId)?.source === code;
+  const isExample = !!exampleId && getExample(exampleId)?.source === code;
   const hardErrors = errors.filter((e) => e.severity !== "warning");
   const warnings = errors.filter((e) => e.severity === "warning");
   const share = () => {
@@ -89,18 +89,20 @@ export default function Playground() {
       <div className="flex flex-wrap items-center gap-2 border-b border-line px-4 py-3 sm:px-6">
         <h1 className="mr-2 text-[15px] font-semibold tracking-tight">Playground</h1>
         <label className="relative">
-          <span className="sr-only">Load example</span>
+          <span className="sr-only">Examples</span>
           <select
             value={isExample ? exampleId : ""}
             onChange={(e) => pickExample(e.target.value)}
             className="h-9 appearance-none rounded-lg border border-line-strong bg-panel pl-3 pr-9 text-sm text-fg outline-none transition hover:border-white/25"
           >
             {!isExample && <option value="">Custom program</option>}
-            {recordings.map((r) => (
-              <option key={r.id} value={r.id}>
-                {r.title}
-              </option>
-            ))}
+            <optgroup label="Examples">
+              {examples.map((r) => (
+                <option key={r.id} value={r.id}>
+                  {r.title}
+                </option>
+              ))}
+            </optgroup>
           </select>
           <svg className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-dim" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" aria-hidden>
             <path d="m6 9 6 6 6-6" />

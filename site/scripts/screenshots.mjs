@@ -19,14 +19,13 @@ function chromePath() {
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 const shots = [
-  { name: "home", path: "/", wait: 7000, full: true },
-  { name: "home-hero", path: "/", wait: 9000 },
-  { name: "gallery-mid", path: "/gallery?example=travel-booking", wait: 2600 },
-  { name: "gallery-done", path: "/gallery?example=travel-booking", wait: 1200, finish: true, full: true },
-  { name: "gallery-code", path: "/gallery?example=analytics-dashboard&code=1", wait: 1500, finish: true },
+  { name: "home", path: "/", wait: 3000, full: true },
+  { name: "home-hero", path: "/", wait: 3500 },
+  { name: "wander", path: "/wander", wait: 2500, full: true },
+  { name: "wander-top", path: "/wander", wait: 3500 },
   { name: "playground", path: "/playground?example=analytics-dashboard", wait: 3000 },
   { name: "playground-error", path: "/playground?example=support-triage", wait: 2500, breakCode: true },
-  { name: "wander", path: "/wander", wait: 1200 },
+  { name: "not-found", path: "/nope", wait: 800 },
 ];
 
 const widths = [

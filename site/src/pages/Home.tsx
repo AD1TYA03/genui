@@ -3,9 +3,8 @@ import type { ReactNode } from "react";
 import { Link } from "react-router";
 import { CodeTabs, type CodeFile } from "../components/CodeTabs";
 import { CopyPill } from "../components/CopyPill";
-import { HeroReplay } from "../components/HeroReplay";
 import { ArrowRight } from "../components/icons";
-import { recordings } from "../lib/recordings";
+import { InViewVideo } from "../components/InViewVideo";
 import { useTitle } from "../lib/useTitle";
 
 const PYTHON = `from fastapi import FastAPI, Request
@@ -102,9 +101,9 @@ function Hero() {
         aria-hidden
         className="pointer-events-none absolute inset-x-0 top-0 -z-10 h-[560px] bg-[radial-gradient(60%_50%_at_70%_0%,rgba(139,92,246,0.10),transparent_70%)]"
       />
-      <div className="mx-auto grid max-w-6xl items-center gap-12 px-5 pb-20 pt-12 sm:px-8 sm:pt-20 lg:grid-cols-[1fr_1fr] lg:gap-16 lg:pb-28 lg:pt-24">
+      <div className="mx-auto grid max-w-6xl items-center gap-12 px-5 pb-20 pt-12 sm:px-8 sm:pt-20 lg:grid-cols-[0.85fr_1.15fr] lg:gap-14 lg:pb-28 lg:pt-24">
         <div className="min-w-0">
-          <h1 className="text-balance text-[2.6rem] font-semibold leading-[1.05] tracking-[-0.035em] sm:text-6xl">
+          <h1 className="text-balance text-[2.6rem] font-semibold leading-[1.05] tracking-[-0.035em] sm:text-6xl lg:text-[3.3rem]">
             Generative UI for <span className="text-gradient">Python agents</span>
           </h1>
           <p className="mt-6 max-w-md text-pretty text-lg leading-relaxed text-muted">
@@ -118,10 +117,10 @@ function Hero() {
 
           <div className="mt-8 flex flex-wrap items-center gap-3">
             <Link
-              to="/gallery"
+              to="/wander"
               className="group inline-flex h-11 items-center gap-2 rounded-xl bg-fg px-5 text-sm font-semibold text-ink transition hover:bg-white"
             >
-              See the gallery
+              See it in action
               <ArrowRight className="transition group-hover:translate-x-0.5" />
             </Link>
             <Link
@@ -139,7 +138,31 @@ function Hero() {
           transition={{ duration: 0.6, delay: 0.1, ease: [0.22, 1, 0.36, 1] }}
           className="min-w-0"
         >
-          <HeroReplay />
+          <figure>
+            <div className="overflow-hidden rounded-2xl border border-line bg-ink-2 shadow-[0_40px_100px_-50px_rgba(0,0,0,0.9)]">
+              <div className="flex items-center gap-1.5 border-b border-line px-4 py-2.5" aria-hidden>
+                <span className="size-2.5 rounded-full bg-white/10" />
+                <span className="size-2.5 rounded-full bg-white/10" />
+                <span className="size-2.5 rounded-full bg-white/10" />
+              </div>
+              <InViewVideo
+                webm="/wander/wander.webm"
+                mp4="/wander/wander.mp4"
+                poster="/wander/wander-poster.jpg"
+                width={1440}
+                height={780}
+                eager
+                label="Screen recording of Wander, a booking concierge built with genui: stays, dates, price and a ticket, streamed as UI"
+                className="bg-[#f3ece0]"
+              />
+            </div>
+            <figcaption className="mt-3 text-sm text-dim">
+              A real run: Gemini agent → genui-py → React.{" "}
+              <Link to="/wander" className="text-muted underline decoration-white/20 underline-offset-4 hover:text-fg">
+                About Wander
+              </Link>
+            </figcaption>
+          </figure>
         </motion.div>
       </div>
     </section>
@@ -237,34 +260,26 @@ function Features() {
   );
 }
 
-function GalleryTeaser() {
+function ClosingCta() {
   return (
     <Section className="pt-0 sm:pt-0">
-      <div className="grid items-center gap-10 rounded-2xl border border-line p-8 sm:p-12 lg:grid-cols-[1.2fr_1fr]">
-        <div>
-          <h2 className="text-balance text-3xl font-semibold tracking-[-0.025em]">Watch real model output become UI</h2>
-          <p className="mt-4 max-w-lg text-pretty leading-relaxed text-muted">
-            Six recorded agent answers, replayed through the renderer you ship. Open any of them in the playground.
-          </p>
-          <Link
-            to="/gallery"
-            className="group mt-8 inline-flex h-11 items-center gap-2 rounded-xl bg-fg px-5 text-sm font-semibold text-ink transition hover:bg-white"
-          >
-            Open the gallery <ArrowRight className="transition group-hover:translate-x-0.5" />
-          </Link>
-        </div>
-        <ul className="grid grid-cols-2 gap-2">
-          {recordings.map((r) => (
-            <li key={r.id}>
-              <Link
-                to={`/gallery?example=${r.id}`}
-                className="block rounded-lg px-3 py-2.5 text-sm text-muted transition hover:bg-white/[0.04] hover:text-fg"
-              >
-                {r.title}
-              </Link>
-            </li>
-          ))}
-        </ul>
+      <div className="grid gap-4 md:grid-cols-2">
+        <Link to="/wander" className="group rounded-2xl border border-line p-8 transition hover:border-line-strong hover:bg-white/[0.02]">
+          <p className="text-sm font-medium text-dim">Showcase</p>
+          <h2 className="mt-2 text-2xl font-semibold tracking-[-0.02em]">Wander, a booking concierge</h2>
+          <p className="mt-3 max-w-sm text-pretty leading-relaxed text-muted">A Gemini agent with real tools and custom components. Full run, stack and code.</p>
+          <span className="mt-6 inline-flex items-center gap-2 text-sm font-semibold text-fg">
+            See Wander <ArrowRight className="transition group-hover:translate-x-0.5" />
+          </span>
+        </Link>
+        <Link to="/playground" className="group rounded-2xl border border-line p-8 transition hover:border-line-strong hover:bg-white/[0.02]">
+          <p className="text-sm font-medium text-dim">Tool</p>
+          <h2 className="mt-2 text-2xl font-semibold tracking-[-0.02em]">OpenUI Lang playground</h2>
+          <p className="mt-3 max-w-sm text-pretty leading-relaxed text-muted">Write OpenUI Lang, see it render live, and share a link.</p>
+          <span className="mt-6 inline-flex items-center gap-2 text-sm font-semibold text-fg">
+            Open playground <ArrowRight className="transition group-hover:translate-x-0.5" />
+          </span>
+        </Link>
       </div>
     </Section>
   );
@@ -278,7 +293,7 @@ export default function Home() {
       <HowItWorks />
       <CodeSection />
       <Features />
-      <GalleryTeaser />
+      <ClosingCta />
     </>
   );
 }

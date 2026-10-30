@@ -55,10 +55,12 @@ const clickText = (page, sel, text) =>
     check(`home: copy "${cmd}"`, clip === cmd && label, `clipboard="${clip}"`);
   }
   await sleep(4000);
-  const heroRendered = await page.evaluate(() => document.querySelector("figure")?.innerText.includes("Lisbon"));
-  check("home: hero replay renders streaming UI", !!heroRendered);
+  const hero = await page.evaluate(() => { const v = document.querySelector("video"); return { playing: !v.paused && v.currentTime > 0.5, muted: v.muted, loop: v.loop, inline: v.playsInline, poster: v.poster }; });
+  check("home: hero Wander video autoplays muted, looped, inline", hero.playing && hero.muted && hero.loop && hero.inline, JSON.stringify(hero));
+  const navLabels = await page.$$eval("header nav a", (as) => as.map((a) => a.textContent.trim()).filter(Boolean));
+  check("nav: no Gallery item", !navLabels.some((l) => l.includes("Gallery")), navLabels.join(", "));
   // nav
-  for (const [label, path] of [["Gallery", "/gallery"], ["Playground", "/playground"], ["Wander", "/wander"]]) {
+  for (const [label, path] of [["Wander", "/wander"], ["Playground", "/playground"]]) {
     await page.goto(BASE + "/", { waitUntil: "networkidle0" });
     await clickText(page, "header nav a", label);
     await sleep(500);
@@ -87,58 +89,11 @@ const clickText = (page, sel, text) =>
   await page.close();
 }
 
-// ── Gallery ──
+// ── Gallery redirect ──
 {
-  const page = await open("/gallery");
-  const ids = await page.$$eval("nav[aria-label='Examples'] button", (b) => b.map((x) => x.textContent.trim()));
-  check("gallery: 6 examples listed", ids.length === 6, ids.join(", "));
-  for (const title of ids) {
-    await clickText(page, "nav[aria-label='Examples'] button", title);
-    await sleep(1500);
-    const midChars = await page.evaluate(() => document.querySelector("section [class*=tabular-nums]")?.textContent);
-    const playing = await page.evaluate(() => !!document.querySelector('button[aria-label="Skip to end"]:not([disabled])'));
-    // speed 4x
-    await clickText(page, '[role="radio"]', "4×");
-    const speedOn = await page.evaluate(() => [...document.querySelectorAll('[role="radio"]')].find((b) => b.getAttribute("aria-checked") === "true")?.textContent);
-    // skip to end
-    await page.click('button[aria-label="Skip to end"]');
-    await sleep(900);
-    const done = await page.evaluate(() => {
-      const t = document.querySelector("section [class*=tabular-nums]")?.textContent ?? "";
-      const [a, b] = t.split("/").map((x) => x.replace(/\D/g, ""));
-      return a === b && a.length > 0;
-    });
-    // view code
-    await clickText(page, "button", "View OpenUI Lang");
-    await sleep(200);
-    const codeShown = await page.evaluate(() => document.querySelector("section pre")?.textContent?.startsWith("root = "));
-    await clickText(page, "button", "View OpenUI Lang");
-    // replay
-    await clickText(page, "button", "Replay");
-    await sleep(700);
-    const restarted = await page.evaluate(() => !!document.querySelector('button[aria-label="Skip to end"]:not([disabled])'));
-    await page.click('button[aria-label="Skip to end"]');
-    await sleep(600);
-    const errs = await page.evaluate(() => document.querySelector("section")?.innerText.includes("Render error"));
-    check(
-      `gallery: ${title}`,
-      playing && speedOn === "4×" && done && codeShown && restarted && !errs,
-      `mid=${midChars?.trim()} speed=${speedOn} done=${done} code=${codeShown} replay=${restarted}`,
-    );
-    await clickText(page, '[role="radio"]', "1×");
-  }
-  // click a button inside rendered UI -> toast
-  await clickText(page, "nav[aria-label='Examples'] button", "Travel booking");
-  await sleep(500);
-  await page.click('button[aria-label="Skip to end"]');
-  await sleep(1200);
-  await clickText(page, "section button", "Cancel");
-  await sleep(500);
-  const toast = await page.evaluate(() => document.querySelector('[role="status"]')?.innerText);
-  check("gallery: button in rendered UI shows toast", !!toast && toast.includes("Cancel"), toast?.replace(/\n/g, " | "));
-  await clickText(page, "a", "Open in playground");
-  await sleep(1500);
-  check("gallery: open in playground", page.url().includes("/playground?example=travel-booking"));
+  const page = await open("/gallery?example=travel-booking");
+  await sleep(800);
+  check("/gallery redirects to /wander", new URL(page.url()).pathname === "/wander", page.url());
   await page.close();
 }
 
@@ -150,6 +105,8 @@ let shareUrl = "";
   const status = () => page.evaluate(() => document.querySelector('[aria-live="polite"].rounded-full, span[aria-live="polite"]')?.textContent?.trim());
   check("playground: loads valid", (await status())?.startsWith("valid"), await status());
   const opts = await page.$$eval("select option", (o) => o.map((x) => x.value));
+  const group = await page.$eval("select optgroup", (g) => g.label).catch(() => null);
+  check('playground: presets labelled "Examples"', group === "Examples", String(group));
   let allValid = true;
   for (const v of opts.filter(Boolean)) {
     await page.select("select", v);
@@ -159,6 +116,13 @@ let shareUrl = "";
     if (!s?.startsWith("valid") || !rendered) allValid = false;
   }
   check("playground: every example loads, renders and is valid", allValid, opts.join(","));
+  // a button inside the rendered UI raises an action toast
+  await page.select("select", "travel-booking");
+  await sleep(900);
+  await clickText(page, ".genui-frame button", "Cancel");
+  await sleep(500);
+  const toast = await page.evaluate(() => document.querySelector('[role="status"]')?.innerText);
+  check("playground: button in rendered UI shows action toast", !!toast && toast.includes("Cancel"), toast?.replace(/\n/g, " | "));
   // introduce an error
   const setCode = (fn) =>
     page.evaluate((fnSrc) => {
@@ -200,6 +164,47 @@ let shareUrl = "";
   await page.close();
 }
 
+// ── Wander ──
+{
+  const page = await open("/wander");
+  await page.evaluate(async () => {
+    for (let y = 0; y < document.body.scrollHeight; y += 500) { window.scrollTo(0, y); await new Promise((r) => setTimeout(r, 80)); }
+    const strip = document.querySelector("#flow-title")?.parentElement?.querySelector("ol");
+    if (strip) for (let x = 0; x <= strip.scrollWidth; x += 300) { strip.scrollLeft = x; await new Promise((r) => setTimeout(r, 80)); }
+  });
+  await sleep(800);
+  const imgs = await page.$$eval("main img", (is) => is.map((i) => ({ ok: i.complete && i.naturalWidth > 0, alt: !!i.alt })));
+  check("wander: 5 flow stills load with alt text", imgs.length === 5 && imgs.every((i) => i.ok && i.alt), `${imgs.filter((i) => i.ok).length}/${imgs.length}`);
+  await page.evaluate(() => document.querySelector("video").scrollIntoView({ block: "center" }));
+  await sleep(2500);
+  const v1 = await page.evaluate(() => { const v = document.querySelector("video"); return { t: v.currentTime, paused: v.paused, src: v.currentSrc, poster: v.poster, muted: v.muted }; });
+  check("wander: video autoplays muted when in view", !v1.paused && v1.t > 0.5 && v1.muted, `t=${v1.t.toFixed(1)} src=${v1.src.split("/").pop()}`);
+  await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
+  await sleep(700);
+  check("wander: video pauses out of view", await page.evaluate(() => document.querySelector("video").paused));
+  await page.evaluate(() => document.querySelector("video").scrollIntoView({ block: "center" }));
+  await sleep(1200);
+  await page.click('button[aria-label="Pause video"]');
+  await sleep(300);
+  const pausedByUser = await page.evaluate(() => document.querySelector("video").paused && !!document.querySelector('button[aria-label="Play video"]'));
+  check("wander: pause button works", pausedByUser);
+  const code = await page.$$eval('a[href*="examples/wander"]', (as) => as.map((a) => a.href));
+  check("wander: code links", code.includes("https://github.com/AD1TYA03/genui/tree/main/examples/wander"), code[0]);
+  await clickText(page, "a", "Run it locally");
+  await sleep(600);
+  const runVisible = await page.evaluate(() => { const r = document.getElementById("run").getBoundingClientRect(); return r.top < innerHeight && r.bottom > 0; });
+  check("wander: 'Run it locally' jumps to instructions", runVisible);
+  globalThis.wanderLinks = [...new Set(await page.$$eval("a[href^='http']", (as) => as.map((a) => a.href)))];
+  await page.close();
+}
+{
+  const page = await open("/");
+  await clickText(page, "a", "See it in action");
+  await sleep(800);
+  check("home: primary CTA -> /wander", new URL(page.url()).pathname === "/wander");
+  await page.close();
+}
+
 // ── 404 ──
 {
   const page = await open("/definitely-not-here");
@@ -209,7 +214,7 @@ let shareUrl = "";
 }
 
 // ── Mobile overflow / layout shift ──
-for (const path of ["/", "/gallery", "/playground", "/wander", "/nope"]) {
+for (const path of ["/", "/playground", "/wander", "/nope"]) {
   const page = await open(path, { width: 390, height: 844, isMobile: true, hasTouch: true, deviceScaleFactor: 2 });
   await page.evaluateOnNewDocument(() => {});
   await sleep(2500);
@@ -229,8 +234,8 @@ for (const path of ["/", "/gallery", "/playground", "/wander", "/nope"]) {
   check(`mobile 390: no horizontal overflow ${path}`, r.sw <= r.iw && r.over.length === 0, `${r.sw}/${r.iw} ${r.over.join(", ")}`);
   await page.close();
 }
-// CLS on home + gallery
-for (const path of ["/", "/gallery"]) {
+// CLS on home + wander
+for (const path of ["/", "/wander"]) {
   const page = await browser.newPage();
   await page.setViewport({ width: 1440, height: 900 });
   await page.evaluateOnNewDocument(() => {
@@ -249,4 +254,4 @@ for (const path of ["/", "/gallery"]) {
 check("no console errors / failed requests", consoleErrors.length === 0, consoleErrors.slice(0, 5).join(" || "));
 await browser.close();
 console.log(`\n${results.filter((r) => r.ok).length}/${results.length} passed`);
-console.log("EXTERNAL", JSON.stringify(globalThis.externalLinks));
+console.log("EXTERNAL", JSON.stringify([...new Set([...(globalThis.externalLinks ?? []), ...(globalThis.wanderLinks ?? [])])]));

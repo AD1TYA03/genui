@@ -3,11 +3,10 @@ import "@fontsource-variable/jetbrains-mono";
 import "./index.css";
 import { lazy, StrictMode, Suspense } from "react";
 import { createRoot } from "react-dom/client";
-import { BrowserRouter, Route, Routes } from "react-router";
+import { BrowserRouter, Navigate, Route, Routes } from "react-router";
 import { Layout } from "./components/Layout";
 import Home from "./pages/Home";
 
-const Gallery = lazy(() => import("./pages/Gallery"));
 const Playground = lazy(() => import("./pages/Playground"));
 const Wander = lazy(() => import("./pages/Wander"));
 const NotFound = lazy(() => import("./pages/NotFound"));
@@ -23,7 +22,7 @@ createRoot(document.getElementById("root")!).render(
         <Routes>
           <Route element={<Layout />}>
             <Route index element={<Home />} />
-            <Route path="gallery" element={<Gallery />} />
+            <Route path="gallery" element={<Navigate to="/wander" replace />} />
             <Route path="playground" element={<Playground />} />
             <Route path="wander" element={<Wander />} />
             <Route path="*" element={<NotFound />} />
