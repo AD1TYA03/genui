@@ -331,7 +331,7 @@ def _binding_params(signature: str) -> dict[str, str]:
 class Library:
     """An OpenUI component library, loaded from a LibrarySpec."""
 
-    def __init__(self, spec: Mapping[str, Any], *, validate: bool = True) -> None:
+    def __init__(self, spec: Mapping[str, Any], *, validate: bool = False) -> None:
         if not isinstance(spec, Mapping):
             raise LibraryError("A LibrarySpec must be a JSON object.")
         comps = spec.get("components")
@@ -355,13 +355,15 @@ class Library:
 
     @classmethod
     def from_spec(
-        cls, source: str | os.PathLike[str] | Mapping[str, Any] | bytes, *, validate: bool = True
+        cls, source: str | os.PathLike[str] | Mapping[str, Any] | bytes, *, validate: bool = False
     ) -> Library:
         """Load from a dict, a JSON string, JSON bytes, or a path to a JSON file.
 
         A string that starts with ``{`` (after whitespace) is parsed as JSON;
-        any other string is a file path. Runs :meth:`validate` unless
-        ``validate=False``.
+        any other string is a file path. Pass ``validate=True`` to raise on any
+        spec section 3.1 rule violation (see :meth:`issues`). It is off by default
+        because real libraries, including OpenUI's own ``react-ui`` library, break
+        some of those rules and still render fine.
         """
         if isinstance(source, Mapping):
             data: Any = source

@@ -9,13 +9,14 @@ from typing import Any, Mapping
 from .ast import AST, Comp, Node, Ref, StateRef, is_ast, walk
 from .builtins import is_builtin, is_reserved_call
 from .errors import OpenUIError
-from .evaluator import EvalContext, evaluate, evaluate_prop, evaluate_root
+from .evaluator import EvalContext, evaluate, evaluate_root
 from .expressions import parse_expression
 from .lexer import T
 from .library import CompiledLibrary, CustomFunction, compile_library
 from .materialize import MaterializeCtx, materialize_value, name_raw_call_args
-from .source import RawStatement, autoclose, preprocess, scan_boundaries, split_statements
+from .source import RawStatement, autoclose, preprocess, scan_completed, split_statements
 from .validation import push_issue
+from .tsjson import as_element, is_element_like, ts_json
 from .values import Element
 
 ROOT_ID = "root"
@@ -217,14 +218,14 @@ def _contains_component(node: AST) -> bool:
     return found[0]
 
 
-def _plain_default(value: Any, lib: CompiledLibrary) -> Any:
-    """A state default is a plain value: any expression or component in it is
-    evaluated once, with no state set yet."""
-    ctx = EvalContext(get_state=lambda n: None, resolve_ref=lambda n: None, lib=lib)
-    try:
-        return evaluate_prop(value, ctx, False, None)
-    except Exception:
-        return None
+def _stored_default(value: Any) -> Any:
+    """A state default as the reference stores it: the materialized value as is.
+
+    Expressions the reference keeps as AST objects are stored in the reference's
+    JSON shape (``{"k": "BinOp", ...}``), so reading them back behaves the same.
+    Components stay :class:`Element` instances, which the renderer renders.
+    """
+    return ts_json(value, keep_elements=True)
 
 
 def build_result(
@@ -236,7 +237,8 @@ def build_result(
     entry = _pick_entry(stmts, lib.root)
     entry_id = entry[0] if entry else None
     syms: dict[str, AST] = {sid: s.expr for sid, s in stmts.items()}
-    unreached = {sid for sid, s in stmts.items() if sid != entry_id and s.kind == "value"}
+    # insertion-ordered, like the reference's Set: orphans come out in statement order
+    unreached = {sid: None for sid, s in stmts.items() if sid != entry_id and s.kind == "value"}
     ctx = MaterializeCtx(
         partial=incomplete,
         current_statement_id=entry_id,
@@ -250,8 +252,8 @@ def build_result(
     root_expression: AST | None = None
     if entry_id is not None:
         materialized = materialize_value(syms[entry_id], ctx)
-        if isinstance(materialized, Element):
-            root = materialized
+        if is_element_like(materialized):
+            root = as_element(materialized)
             root.statement_id = entry_id
         elif is_ast(materialized) and _contains_component(materialized):
             root_expression = materialized
@@ -261,7 +263,7 @@ def build_result(
     mutations: list[MutationStatement] = []
     for s in stmts.values():
         if s.kind == "state":
-            state[s.id] = _plain_default(materialize_value(s.expr, ctx), lib)
+            state[s.id] = _stored_default(materialize_value(s.expr, ctx))
         elif s.kind == "query":
             args = s.expr.args
             name_raw_call_args(args, ctx, s.id)
@@ -328,15 +330,6 @@ def build_result(
     )
 
 
-def _parse_failed(lib: CompiledLibrary, incomplete: bool) -> ParseResult:
-    err = OpenUIError(
-        source="parser", code="parse-failed",
-        message="The response has text but yields no statements",
-        hint="Write statements of the form `name = expression`, starting with `root = ...`",
-    )
-    return _empty(lib, incomplete, [err])
-
-
 def _parse_exception(lib: CompiledLibrary, exc: Exception) -> ParseResult:
     err = OpenUIError(source="parser", code="parse-exception",
                       message=f"The parser failed: {type(exc).__name__}: {exc}")
@@ -365,25 +358,15 @@ def parse(
 
 
 def _parse_prepared(cleaned: str, lib: CompiledLibrary) -> ParseResult:
+    # parser.ts parse(): implicit closing on the whole text, then the token split.
     if not cleaned:
-        return _empty(lib, False)
-    spans, pending = scan_boundaries(cleaned, 0, final=True)
+        return _empty(lib, True)
+    closed, incomplete = autoclose(cleaned)
     stmts: dict[str, Statement] = {}
-    incomplete = False
-    count = 0
-    for i, (a, b) in enumerate(spans):
-        segment = cleaned[a:b]
-        if i == len(spans) - 1:
-            closed, incomplete = autoclose(segment)
-            src = cleaned[:a] + closed
-            parsed = statements_from(closed, a, src)
-        else:
-            parsed = statements_from(segment, a, cleaned)
-        for s in parsed:
-            stmts[s.id] = s
-            count += 1
+    for s in statements_from(closed, 0, closed):
+        stmts[s.id] = s
     if not stmts:
-        return _parse_failed(lib, incomplete)
+        return _empty(lib, incomplete)
     return build_result(stmts, incomplete, lib)
 
 
@@ -396,7 +379,8 @@ class StreamParser:
     """Parse a program a chunk at a time (language.md, section 4).
 
     ``feed`` returns the current snapshot after each chunk; ``end`` finalizes the
-    stream. The result at the end equals :func:`parse` of the joined chunks.
+    stream. Mirrors the reference streaming parser; the final result equals
+    :func:`parse` of the joined chunks except in the cases listed in COMPAT.md.
     Feeding after ``end`` starts a new stream.
     """
 
@@ -413,6 +397,7 @@ class StreamParser:
         self._cleaned = ""
         self._completed_end = 0
         self._completed: dict[str, Statement] = {}
+        self._completed_count = 0
         self._ended = False
 
     @property
@@ -441,6 +426,7 @@ class StreamParser:
         if not nxt.startswith(self._cleaned[: self._completed_end]):
             self._completed_end = 0
             self._completed.clear()
+            self._completed_count = 0
         self._cleaned = nxt
 
     def _result(self, complete: bool) -> ParseResult:
@@ -451,37 +437,38 @@ class StreamParser:
             return _parse_exception(lib, exc)
 
     def _result_inner(self, complete: bool) -> ParseResult:
+        # parser.ts createStreamParser().currentResult()
         lib = self.library
         self._refresh()
         cleaned = self._cleaned
-        spans, _ = scan_boundaries(cleaned, self._completed_end, final=False)
+        spans, pending_start = scan_completed(cleaned, self._completed_end)
         for a, b in spans:
             for s in statements_from(cleaned[a:b], a, cleaned):
                 self._completed[s.id] = s
+                self._completed_count += 1
             self._completed_end = b + 1
-        pending_start = self._completed_end
         pending = cleaned[pending_start:]
-        if not pending.strip():
-            if not self._completed:
-                return _parse_failed(lib, False) if complete and cleaned else _empty(lib, False)
+        body = pending.strip()
+        if not body:
+            if self._completed_count == 0:
+                return _empty(lib, True)
             return build_result(self._completed, False, lib)
 
-        lead = len(pending) - len(pending.lstrip())
-        body = pending.strip()
+        offset = pending_start + (len(pending) - len(pending.lstrip()))
         closed, incomplete = autoclose(body)
-        offset = pending_start + lead
         src = cleaned[:offset] + closed
         parsed = statements_from(closed, offset, src)
         if not parsed:
-            if not self._completed:
-                return _parse_failed(lib, incomplete) if complete else _empty(lib, incomplete)
+            if self._completed_count == 0:
+                return _empty(lib, incomplete)
             return build_result(self._completed, incomplete, lib)
 
         merged = dict(self._completed)
         pending_ids: set[int] = set()
         for s in parsed:
-            # A pending statement that needed implicit closing never replaces a completed one.
-            if s.id in self._completed and incomplete and not complete:
+            # Existing names are replaced only when the pending text needed no implicit closing
+            # (the reference applies this at stream end too).
+            if s.id in self._completed and incomplete:
                 continue
             merged[s.id] = s
             pending_ids.add(id(s))

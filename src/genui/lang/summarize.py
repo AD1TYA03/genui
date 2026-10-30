@@ -7,6 +7,7 @@ from typing import Any, Mapping
 from .ast import is_ast
 from .evaluator import EvalContext, evaluate
 from .parser import ParseResult
+from .tsjson import ast_json, ts_json
 from .values import ActionPlan, Binding, Element
 
 _STEP_NAMES = {
@@ -47,35 +48,56 @@ def summarize_value(value: Any, ctx: EvalContext | None = None, _seen: tuple = (
     if isinstance(value, Binding):
         return {"$binding": value.target}
     if isinstance(value, dict):
+        # the reference runner recognizes these shapes in data too
+        if value.get("type") == "element":
+            props = value.get("props") if isinstance(value.get("props"), dict) else {}
+            out: dict[str, Any] = {"props": {}}
+            if value.get("typeName") is not None:
+                out = {"type": value.get("typeName"), "props": {}}
+            for k, v in props.items():
+                s = summarize_value(v, ctx, seen)
+                if s is not None:
+                    out["props"][k] = s
+            return out
+        if isinstance(value.get("steps"), list):
+            return {"actions": [_summarize_step(s, ctx, seen) for s in value["steps"]]}
+        if value.get("__reactive") == "assign":
+            return {"$binding": value.get("target")}
         return {str(k): summarize_value(v, ctx, seen) for k, v in value.items()}
-    if is_ast(value) and ctx is not None:
-        return summarize_value(evaluate(value, ctx), ctx, seen)
+    if is_ast(value):
+        # An unevaluated expression (a prop that threw) is the reference's AST object.
+        return summarize_value(ast_json(value), ctx, seen)
     return None
 
 
-def _summarize_step(step: Mapping[str, Any], ctx: EvalContext | None, seen: tuple = ()) -> dict[str, Any]:
+def _summarize_step(step: Any, ctx: EvalContext | None, seen: tuple = ()) -> dict[str, Any]:
+    if not isinstance(step, dict):
+        return {"args": []}
     t = step.get("type")
     if t == "continue_conversation":
         context = step.get("context")
-        args = [step.get("message")] if context is None else [step.get("message"), summarize_value(context, ctx, seen)]
+        args = [step.get("message")] if context is None else [step.get("message"), ts_json(context)]
         return {"action": "ToAssistant", "args": args}
     if t == "open_url":
         return {"action": "OpenUrl", "args": [step.get("url")]}
     if t == "set":
         value_ast = step.get("valueAST")
         value = evaluate(value_ast, ctx) if (ctx is not None and value_ast is not None) else None
-        return {"action": "Set", "args": [step.get("target"), summarize_value(value, ctx, seen)]}
+        # as in the reference runner, the context and the Set value are raw values (JSON only)
+        return {"action": "Set", "args": [step.get("target"), ts_json(value)]}
     if t == "reset":
         return {"action": "Reset", "args": list(step.get("targets") or [])}
     if t == "run":
         return {"action": "Run", "args": [step.get("statementId")]}
     params = step.get("params") or {}
-    name = step.get("name") or t
-    keys: list[str] = list(params)
+    name = step.get("name")
+    keys: list[str] = list(params) if isinstance(params, dict) else []
     lib = ctx.lib if ctx is not None else None
     if lib is not None and name in lib.action_schemas:
         keys = list(((lib.action_schemas[name] or {}).get("params") or {}).get("properties") or {})
-    return {"action": name, "args": [summarize_value(params.get(k), ctx, seen) for k in keys]}
+    args = [summarize_value(params.get(k) if isinstance(params, dict) else None, ctx, seen) for k in keys]
+    # a step with no name (data posing as a step) has no `action` key, as in the reference's JSON
+    return {"action": name, "args": args} if name is not None else {"args": args}
 
 
 def summarize(
@@ -101,7 +123,7 @@ def summarize(
         "unresolved": list(result.unresolved),
         "orphans": list(result.orphans),
         "incomplete": result.incomplete,
-        "state": summarize_value(dict(result.state), ctx),
+        "state": ts_json(dict(result.state)),
         "statements": list(result.statements),
         "errorObjects": [e.to_dict() for e in errors],
     }

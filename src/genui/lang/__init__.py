@@ -1,7 +1,8 @@
 """OpenUI Lang 1.0: parser, program model, evaluation, and validation.
 
 A community Python implementation of the language in ``spec/language.md``
-(not affiliated with Thesys). Standard library only.
+(not affiliated with Thesys). Standard library only. Behaviour follows the
+TypeScript reference where it differs from the spec prose; see ``COMPAT.md``.
 
 Quick start::
 
@@ -16,7 +17,7 @@ Streaming::
     sp = StreamParser(library_spec)
     for chunk in chunks:
         snapshot = sp.feed(chunk)
-    final = sp.end()      # equals parse("".join(chunks), library_spec)
+    final = sp.end()      # equals parse("".join(chunks), library_spec), see COMPAT.md
 """
 
 from .errors import OpenUIError

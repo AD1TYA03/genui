@@ -1,0 +1,22 @@
+name: Release
+# Publishes to PyPI when a GitHub release is published. Uses PyPI Trusted Publishing:
+# no token is stored anywhere. One-time setup on pypi.org → genui-py → Publishing:
+# owner AD1TYA03, repository genui, workflow release.yml, environment pypi.
+# Then set the repo variable PYPI_TRUSTED=true (Settings → Variables) to turn publishing on.
+on:
+  release: { types: [published] }
+jobs:
+  test:
+    uses: ./.github/workflows/ci.yml
+  publish:
+    needs: test
+    if: vars.PYPI_TRUSTED == 'true'
+    runs-on: ubuntu-latest
+    environment: pypi
+    permissions: { id-token: write }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - run: uv build
+      - uses: pypa/gh-action-pypi-publish@release/v1
+        with: { skip-existing: true }

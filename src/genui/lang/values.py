@@ -23,6 +23,8 @@ class Element:
     statement_id: str | None = None
     #: True when parsed from input that needed implicit closing
     partial: bool = False
+    #: the reference's ``hasDynamicProps`` flag, fixed when the element is made
+    has_dynamic_props: bool | None = None
 
 
 @dataclass

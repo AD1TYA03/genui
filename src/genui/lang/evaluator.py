@@ -1,20 +1,28 @@
-"""Evaluation of AST nodes and element trees (language.md, sections 3, 5.2, 6.3)."""
+"""Evaluation of AST nodes and element trees (language.md, sections 3, 5.2, 6.3).
+
+Mirrors the reference runtime (``runtime/evaluator.ts``, ``evaluate-prop.ts``,
+``evaluate-tree.ts``) call for call, including where the schema context is and
+is not passed down, and the reference's shape-based recognition of elements,
+action plans, and bindings (see ``tsjson.py``).
+"""
 
 from __future__ import annotations
 
-from dataclasses import dataclass, replace
+from dataclasses import dataclass, field, replace
 from typing import Any, Callable
 
 from . import _js
 from .ast import (
-    AST, Arr, Assign, BinOp, Bool, Comp, Index, Member, Node, Null, Num, Obj, Ph, Ref,
-    RuntimeRef, StateRef, Str, Ternary, UnaryOp, is_ast, to_literal_ast,
+    AST, Arr, Assign, BinOp, Bool, Comp, Index, Member, Node, Null, Num, Obj, Ph, Ref, RuntimeRef,
+    StateRef, Str, Ternary, UnaryOp, to_literal_ast,
 )
-from .builtins import (
-    ACTION_STEP_TYPES, BUILTIN_CALLS, BUILTIN_FUNCTIONS, ParamDef,
-)
+from .builtins import ACTION_STEP_TYPES, BUILTIN_CALLS, BUILTIN_FUNCTIONS, ParamDef
 from .errors import OpenUIError
 from .library import CompiledLibrary
+from .tsjson import (
+    as_ast, as_element, as_plan, binding_target, element_json, is_ast_like, is_binding_like,
+    is_element_like, is_plan_like, object_property, ts_json,
+)
 from .validation import INVALID, IssueCtx, schema_default, validate_value
 from .values import ActionPlan, Binding, CustomStep, Element
 
@@ -27,15 +35,21 @@ class EvalContext:
     resolve_ref: Callable[[str], Any]
     lib: CompiledLibrary | None = None
     report_error: Callable[[str], None] | None = None
+    #: elements being evaluated on the current path (cycle guard)
+    active: set[int] = field(default_factory=set)
 
 
-def _is_step(name: str, lib: CompiledLibrary | None) -> bool:
-    d = BUILTIN_CALLS.get(name)
-    return d is not None and d.kind == "action"
+def _bindable(ctx: EvalContext, component: str, prop: str) -> bool:
+    return ctx.lib.is_bindable(component, prop) if ctx.lib else False
 
 
-def evaluate(node: AST, ctx: EvalContext) -> Any:
-    """Evaluate an AST node to a runtime value."""
+# ─── evaluator.ts: evaluate ────────────────────────────────────────────────
+
+
+def evaluate(node: AST, ctx: EvalContext, sc: bool = False) -> Any:
+    """Evaluate an AST node. ``sc`` is the reference's ``schemaCtx``: when set,
+    components built here get bindings for bindable props and their nested
+    elements evaluated."""
     if isinstance(node, (Str, Num, Bool)):
         return node.v
     if isinstance(node, (Null, Ph)):
@@ -45,12 +59,11 @@ def evaluate(node: AST, ctx: EvalContext) -> Any:
     if isinstance(node, (Ref, RuntimeRef)):
         return ctx.resolve_ref(node.n)
     if isinstance(node, Arr):
-        # An unresolved reference as a direct array element is left out (section 2.3).
-        return [evaluate(e, ctx) for e in node.els if not isinstance(e, Ph)]
+        return [evaluate(e, ctx) for e in node.els]
     if isinstance(node, Obj):
         return {k: evaluate(v, ctx) for k, v in node.entries}
     if isinstance(node, Comp):
-        return _evaluate_call(node, ctx)
+        return _evaluate_call(node, ctx, sc)
     if isinstance(node, BinOp):
         return _evaluate_binop(node, ctx)
     if isinstance(node, UnaryOp):
@@ -64,24 +77,31 @@ def evaluate(node: AST, ctx: EvalContext) -> Any:
         return evaluate(node.then if _js.truthy(evaluate(node.cond, ctx)) else node.else_, ctx)
     if isinstance(node, Member):
         obj = evaluate(node.obj, ctx)
-        if obj is None or isinstance(obj, (Element, ActionPlan, Binding)):
+        if obj is None:
             return None
         if isinstance(obj, list):
             if node.field == "length":
                 return len(obj)
-            return [None if item is None else _js.get_property(item, node.field) for item in obj]
-        return _js.get_property(obj, node.field)
+            return [_get(item, node.field) for item in obj]
+        return _get(obj, node.field)
     if isinstance(node, Index):
         obj = evaluate(node.obj, ctx)
         idx = evaluate(node.index, ctx)
-        if obj is None or idx is None or isinstance(obj, (Element, ActionPlan, Binding)):
+        if obj is None or idx is None:
             return None
         if isinstance(obj, list):
-            return _js.get_property(obj, _js.number_to_string(_js.to_number(idx)))
-        return _js.get_property(obj, _js.to_string(idx))
+            return _get(obj, _js.number_to_string(_js.to_number(idx)))
+        return _get(obj, _js.to_string(idx))
     if isinstance(node, Assign):
         return Binding(node.target, node.value)
     return None
+
+
+def _get(obj: Any, key: str) -> Any:
+    """``obj[key]``: plain data, or a reference object (element, plan, binding)."""
+    if isinstance(obj, (Element, ActionPlan, Binding)):
+        return object_property(obj, key)
+    return _js.get_property(obj, key)
 
 
 def _evaluate_binop(node: BinOp, ctx: EvalContext) -> Any:
@@ -169,11 +189,9 @@ def _call_function(name: str, node: Comp, ctx: EvalContext) -> Any:
     if args is INVALID:
         return None
     fn = lib.functions.get(name)
-    if fn is None:
-        if ctx.report_error:
-            ctx.report_error(f"@{name} has no implementation")
-        return None
     try:
+        if fn is None:
+            raise TypeError("def.fn is not a function")
         result = fn(dict(args))
     except Exception as exc:  # a custom function must never crash the host
         if ctx.report_error:
@@ -186,15 +204,16 @@ def _call_function(name: str, node: Comp, ctx: EvalContext) -> Any:
     return None if checked is INVALID else checked
 
 
-def _evaluate_call(node: Comp, ctx: EvalContext) -> Any:
+def _evaluate_call(node: Comp, ctx: EvalContext, sc: bool) -> Any:
     name = node.name
     builtin = BUILTIN_FUNCTIONS.get(name)
     if builtin is not None:
-        params, fn = builtin
+        _, fn = builtin
         if fn is None:
-            return _evaluate_each(node, ctx)
+            return _evaluate_each(node, ctx, sc)
         return fn(**_evaluate_args(node, ctx))
-    if _is_step(name, ctx.lib):
+    d = BUILTIN_CALLS.get(name)
+    if d is not None and d.kind == "action":
         return _evaluate_action_call(node, ctx)
     lib = ctx.lib
     if lib is not None and name in lib.function_schemas:
@@ -211,22 +230,23 @@ def _evaluate_call(node: Comp, ctx: EvalContext) -> Any:
     if node.mapped_props is not None:
         props: dict[str, Any] = {}
         for key, val in node.mapped_props.items():
-            if isinstance(val, StateRef) and lib is not None and lib.is_bindable(name, key):
+            if isinstance(val, StateRef) and sc and _bindable(ctx, name, key):
                 props[key] = Binding(val.n, StateRef("$value"))
+            elif isinstance(val, StateRef):
+                # without the schema context the StateRef is kept for the tree pass
+                props[key] = ctx.get_state(val.n) if sc else val
             else:
-                props[key] = evaluate(val, ctx)
-        return Element(name, props)
+                props[key] = evaluate(val, ctx, sc)
+        el = Element(name, props, has_dynamic_props=True)
+        if sc:
+            for key, val in list(props.items()):
+                if is_element_like(val):
+                    props[key] = evaluate_element_inline(as_element(val), ctx)
+                elif isinstance(val, list):
+                    props[key] = [evaluate_element_inline(as_element(i), ctx) if is_element_like(i) else i
+                                  for i in val]
+        return el
     return None  # an unknown component in a computed expression renders nothing
-
-
-def _flatten_plans(values: list[Any]) -> ActionPlan:
-    steps: list[dict[str, Any]] = []
-    for v in values:
-        if isinstance(v, ActionPlan):
-            steps.extend(v.steps)
-        elif isinstance(v, dict) and "type" in v:
-            steps.append(v)
-    return own_steps(ActionPlan(steps))
 
 
 def own_steps(plan: ActionPlan) -> ActionPlan:
@@ -237,6 +257,19 @@ def own_steps(plan: ActionPlan) -> ActionPlan:
     if all(own(s) for s in plan.steps):
         return plan
     return ActionPlan([s for s in plan.steps if own(s)])
+
+
+def _flatten_plans(values: list[Any]) -> ActionPlan:
+    steps: list[Any] = []
+    for v in values:
+        if is_plan_like(v):
+            steps.extend(as_plan(v).steps)
+        elif isinstance(v, dict) and "type" in v:
+            steps.append(v)
+        elif isinstance(v, Element):
+            # any object with a `type` key is a step in the reference, element nodes included
+            steps.append(element_json(v))
+    return own_steps(ActionPlan(steps))
 
 
 def _evaluate_action_call(node: Comp, ctx: EvalContext) -> ActionPlan:
@@ -280,7 +313,8 @@ def _evaluate_lazy_step(name: str, args: list[AST]) -> dict[str, Any] | None:
 def _substitute(node: AST, var: str, value: Any) -> AST:
     """Replace ``Ref(var)`` with the element's literal value (captures it for deferred steps)."""
     if isinstance(node, Ref):
-        return to_literal_ast(value) if node.n == var else node
+        # like the reference's toLiteralAST: objects (elements, plans) become their fields
+        return to_literal_ast(ts_json(value, finite=False)) if node.n == var else node
     if isinstance(node, Member):
         sub = _substitute(node.obj, var, value)
         if isinstance(sub, Obj):
@@ -310,7 +344,7 @@ def _substitute(node: AST, var: str, value: Any) -> AST:
     return node
 
 
-def _evaluate_each(node: Comp, ctx: EvalContext) -> Any:
+def _evaluate_each(node: Comp, ctx: EvalContext, sc: bool) -> Any:
     args = node.args
     if len(args) < 3:
         return []
@@ -329,66 +363,128 @@ def _evaluate_each(node: Comp, ctx: EvalContext) -> Any:
         def resolve(n: str, _item: Any = item, _outer: Callable = outer) -> Any:
             return _item if n == var else _outer(n)
 
-        out.append(evaluate(sub, replace(ctx, resolve_ref=resolve)))
+        child = replace(ctx, resolve_ref=resolve)
+        result = evaluate(sub, child, sc)
+        if sc and is_element_like(result):
+            result = evaluate_element_inline(as_element(result), child)
+        out.append(result)
     return out
 
 
-# ─── element trees ─────────────────────────────────────────────────────────
+# ─── evaluate-prop.ts ──────────────────────────────────────────────────────
 
 
-def evaluate_prop(value: Any, ctx: EvalContext, bindable: bool, errors: list[OpenUIError] | None) -> Any:
-    if value is None or not isinstance(value, (list, dict, Node, Element, ActionPlan, Binding)):
-        return value
-    if is_ast(value):
-        if isinstance(value, StateRef) and bindable:
-            return Binding(value.n, StateRef("$value"))
-        result = evaluate(value, ctx)
-        if isinstance(result, Element):
-            return evaluate_element(result, ctx, errors)
+def evaluate_prop(
+    value: Any,
+    ctx: EvalContext,
+    bindable: bool,
+    recurse_element: Callable[[Element], Element],
+) -> Any:
+    """evaluatePropCore: evaluate one prop value; an action plan result loses the
+    custom steps no real call made."""
+    result = _evaluate_prop_value(value, ctx, bindable, recurse_element)
+    return own_steps(as_plan(result)) if is_plan_like(result) else result
+
+
+_OBJECTS = (list, dict, Node, Element, ActionPlan, Binding)
+
+
+def _evaluate_prop_value(
+    value: Any, ctx: EvalContext, bindable: bool, recurse_element: Callable[[Element], Element],
+) -> Any:
+    if not isinstance(value, _OBJECTS):
+        return value  # null and primitives
+    if is_ast_like(value):
+        node = as_ast(value)
+        if isinstance(node, StateRef) and bindable:
+            return Binding(node.n, StateRef("$value"))
+        result = evaluate(node, ctx, True)
+        if is_element_like(result):
+            return recurse_element(as_element(result))
         if isinstance(result, list):
-            return [evaluate_element(i, ctx, errors) if isinstance(i, Element) else i for i in result]
-        if isinstance(result, Binding) and not bindable:
-            return ctx.get_state(result.target)
-        if isinstance(result, ActionPlan):
-            return own_steps(result)
+            return [recurse_element(as_element(i)) if is_element_like(i) else i for i in result]
+        if is_binding_like(result) and not bindable:
+            return ctx.get_state(binding_target(result))
         return result
     if isinstance(value, list):
-        return [evaluate_prop(v, ctx, bindable, errors) for v in value]
-    if isinstance(value, Element):
-        return evaluate_element(value, ctx, errors)
-    if isinstance(value, (ActionPlan, Binding)):
+        return [evaluate_prop(v, ctx, bindable, recurse_element) for v in value]
+    if is_element_like(value):
+        return recurse_element(as_element(value))
+    if is_plan_like(value):
         return value
-    return {k: evaluate_prop(v, ctx, bindable, errors) for k, v in value.items()}
+    if isinstance(value, Binding):
+        return value
+    if any(isinstance(v, _OBJECTS) for v in value.values()):
+        return {k: evaluate_prop(v, ctx, bindable, recurse_element) for k, v in value.items()}
+    return value
+
+
+def evaluate_element_inline(el: Element, ctx: EvalContext) -> Element:
+    """evaluator.ts evaluateElementInline: no error collection."""
+    if el.has_dynamic_props is False:
+        return el
+    with _guard(el, ctx):
+        out = {}
+        for key, value in el.props.items():
+            out[key] = evaluate_prop(value, ctx, _bindable(ctx, el.type_name, key),
+                                     lambda e: evaluate_element_inline(e, ctx))
+        return replace(el, props=out)
+
+
+class _guard:
+    """Cycle guard: an element that contains itself (``$x = Stack([$x])``) raises.
+    The reference overflows its stack here and the enclosing prop reports it."""
+
+    def __init__(self, el: Element, ctx: EvalContext) -> None:
+        self.key = id(el)
+        self.ctx = ctx
+
+    def __enter__(self) -> None:
+        if self.key in self.ctx.active:
+            raise RecursionError("Maximum call stack size exceeded")
+        self.ctx.active.add(self.key)
+
+    def __exit__(self, *exc: Any) -> None:
+        self.ctx.active.discard(self.key)
+
+
+# ─── evaluate-tree.ts ──────────────────────────────────────────────────────
 
 
 def evaluate_element(el: Element, ctx: EvalContext, errors: list[OpenUIError] | None = None) -> Element:
-    """Evaluate every prop of an element tree to concrete values."""
-    lib = ctx.lib
-    out: dict[str, Any] = {}
-    current = [""]
+    """evaluateElementProps: evaluate every prop; a prop that throws keeps its
+    unevaluated value and reports ``runtime-error``."""
+    if el.has_dynamic_props is False:
+        return el
+    with _guard(el, ctx):
+        current = [""]
 
-    def report(msg: str) -> None:
-        if errors is not None:
-            key = current[0]
-            errors.append(OpenUIError(
-                source="runtime",
-                code="runtime-error",
-                message=f'Evaluating prop "{key}" on {el.type_name} failed: {msg}',
-                statement_id=el.statement_id,
-                component=el.type_name,
-                hint=f'Check the expression used for prop "{key}"',
-            ))
+        def report(msg: str) -> None:
+            if errors is not None:
+                key = current[0]
+                errors.append(OpenUIError(
+                    source="runtime",
+                    code="runtime-error",
+                    message=f'Evaluating prop "{key}" on {el.type_name} failed: {msg}',
+                    statement_id=el.statement_id,
+                    component=el.type_name,
+                    hint=f'Check the expression used for prop "{key}"',
+                ))
 
-    prop_ctx = replace(ctx, report_error=report)
-    for key, value in el.props.items():
-        current[0] = key
-        bindable = lib.is_bindable(el.type_name, key) if lib else False
-        try:
-            out[key] = evaluate_prop(value, prop_ctx, bindable, errors)
-        except Exception as exc:  # evaluation must never crash the host
-            out[key] = None
-            report(str(exc) or type(exc).__name__)
-    return replace(el, props=out)
+        prop_ctx = replace(ctx, report_error=report)
+        out: dict[str, Any] = {}
+        for key, value in el.props.items():
+            current[0] = key
+            try:
+                out[key] = evaluate_prop(value, prop_ctx, _bindable(ctx, el.type_name, key),
+                                         lambda e: evaluate_element(e, prop_ctx, errors))
+            except RecursionError:
+                out[key] = value
+                report("Maximum call stack size exceeded")
+            except Exception as exc:  # evaluation must never crash the host
+                out[key] = value
+                report(str(exc) or type(exc).__name__)
+        return replace(el, props=out)
 
 
 def evaluate_root(
@@ -398,24 +494,23 @@ def evaluate_root(
     errors: list[OpenUIError] | None = None,
     entry_id: str | None = "root",
 ) -> Element | None:
-    """Evaluate the entry: the root element, or the component a runtime entry picks."""
+    """evaluateRoot: the root element, or the component a runtime entry picks."""
     if root is not None:
         return evaluate_element(root, ctx, errors)
     if root_expression is None:
         return None
     try:
-        value = evaluate(root_expression, ctx)
-    except Exception:
+        value = evaluate(root_expression, ctx, True)
+    except Exception:  # the reference lets this throw; genui never crashes the host
         value = None
-    if isinstance(value, Element):
-        return evaluate_element(value, ctx, errors)
+    if is_element_like(value):
+        return evaluate_element(as_element(value), ctx, errors)
     if errors is not None:
         errors.append(OpenUIError(
             source="runtime",
             code="no-root",
             message="root does not evaluate to a component",
-            statement_id=entry_id,
-            hint="Make root evaluate to a component call",
+            statement_id="root",
         ))
     return None
 

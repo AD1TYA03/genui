@@ -7,10 +7,10 @@ from dataclasses import dataclass, field
 from typing import Any, Collection
 
 from ._js import strict_equal, typeof
-from .ast import is_ast
+from .tsjson import as_element, is_ast_like, is_element_like
 from .builtins import ParamDef
 from .errors import OpenUIError
-from .values import ActionPlan, Element
+from .values import ActionPlan, Binding, Element
 
 #: Marker for a value that failed validation.
 INVALID: Any = type("_Invalid", (), {"__repr__": lambda self: "INVALID"})()
@@ -159,9 +159,20 @@ def _is_only_component_slot(s: dict, ctx: IssueCtx) -> bool:
     return bool(names) and all(n is not None and n in ctx.components for n in names)
 
 
-def _validate_object(value: Any, s: dict, component: str, path: str, ctx: IssueCtx) -> Any:
+def _object_view(value: Any) -> dict | None:
+    """A reference object (plan, binding) seen as the plain object the reference validates."""
     if isinstance(value, ActionPlan):
-        return value
+        return {"steps": value.steps}
+    if isinstance(value, Binding):
+        return {"__reactive": "assign", "target": value.target, "expr": value.expr}
+    return None
+
+
+def _validate_object(value: Any, s: dict, component: str, path: str, ctx: IssueCtx) -> Any:
+    view = _object_view(value)
+    if view is not None:
+        checked = _validate_object(view, s, component, path, ctx)
+        return value if checked is view else checked
     if not isinstance(value, dict):
         _mismatch(ctx, component, path, "object", _js_type(value))
         return INVALID
@@ -255,10 +266,11 @@ def validate_value(value: Any, schema: Any, component: str, path: str, ctx: Issu
     """
     if not isinstance(schema, dict):
         return value
-    if value is None or is_ast(value):
-        return value
-    if isinstance(value, Element):
-        return INVALID if _validate_element_position(value, schema, component, path, ctx) else value
+    if value is None or is_ast_like(value):
+        return value  # dynamic: resolved at runtime (AST-shaped data counts, as in the reference)
+    if is_element_like(value):
+        el = as_element(value)
+        return INVALID if _validate_element_position(el, schema, component, path, ctx) else value
     if _is_composite(schema):
         if not _is_only_component_slot(schema, ctx):
             return value

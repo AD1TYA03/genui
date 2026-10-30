@@ -153,7 +153,7 @@ def test_valid_libraries():
     for path in [FIXTURE, *GOLDEN_LIBS]:
         if path.stem == "groups":
             continue
-        Library.from_spec(path).validate()
+        Library.from_spec(path, validate=True)
 
 
 def test_groups_golden_has_unknown_member():
@@ -166,7 +166,7 @@ def bad(mutate) -> LibraryError:
     data = spec()
     mutate(data)
     with pytest.raises(LibraryError) as info:
-        Library.from_spec(data)
+        Library.from_spec(data, validate=True)
     return info.value
 
 
@@ -274,3 +274,10 @@ def test_reports_all_issues_and_skip_validation():
 def test_deepcopy_independent():
     lib = Library.from_spec(FIXTURE)
     assert copy.deepcopy(lib.to_spec()) == lib.to_spec()
+
+
+def test_load_is_lenient_by_default():
+    data = spec()
+    data["root"] = "Missing"
+    lib = Library.from_spec(data)  # loads; problems are reported, not raised
+    assert any("Missing" in i for i in lib.issues())

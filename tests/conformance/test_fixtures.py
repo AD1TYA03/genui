@@ -142,6 +142,8 @@ def test_fixture_count() -> None:
 
 
 # ─── streaming equals parsing (language.md, section 4), beyond the fixture chunkings ───
+# The reference (and genui, which mirrors it) can differ from a batch parse when a final
+# redefinition needs implicit closing (COMPAT.md); no fixture program hits that case.
 
 
 def _programs() -> list[tuple[str, str]]:

@@ -18,6 +18,7 @@ from .validation import (
     INVALID, OMIT, IssueCtx, params_signature, push_issue, resolve_invalid, signature_hint,
     validate_value,
 )
+from .tsjson import contains_dynamic, is_element_like
 from .values import Element
 
 
@@ -28,7 +29,7 @@ class MaterializeCtx(IssueCtx):
     unres: list[str] = field(default_factory=list)
     visited: set[str] = field(default_factory=set)
     #: value statement ids not yet reached; what remains are orphans
-    unreached: set[str] | None = None
+    unreached: dict[str, None] | None = None
 
 
 # ─── issue helpers ─────────────────────────────────────────────────────────
@@ -42,7 +43,7 @@ def _available_components(ctx: MaterializeCtx) -> str | None:
 
 def _unknown_component(ctx: MaterializeCtx, name: str) -> None:
     hint = _available_components(ctx)
-    msg = f'Unknown component "{name}": not found in the library'
+    msg = f'Unknown component "{name}" — not found in catalog or builtins'
     if hint:
         msg += ". " + hint
     push_issue(ctx, name, "", "unknown-component", msg, hint)
@@ -52,17 +53,16 @@ def _unknown_function(ctx: MaterializeCtx, name: str) -> None:
     names = sorted(n for n, d in (ctx.lib.call_defs.items() if ctx.lib else []) if d.kind == "function")
     hint = ("Available functions: " + ", ".join("@" + n for n in names)) if names else None
     push_issue(ctx, name, "", "unknown-function",
-               f'Unknown function "@{name}": not a built-in, an action, or a library function. '
-               "The call evaluates to null", hint)
+               f'Unknown function "@{name}": not a built-in or action step. The call evaluates to null', hint)
 
 
 def _required_issue(ctx: MaterializeCtx, name: str, p: ParamDef, params: list[ParamDef], present: bool) -> None:
     path = f"/{p.name}"
     sig = params_signature(name, params)
     if present:
-        msg = f'required field "{path}" cannot be null. Signature: {sig}'
+        msg = f'required field "{path}" cannot be null — signature: {sig}'
     else:
-        msg = f'missing required field "{path}". Signature: {sig}'
+        msg = f'missing required field "{path}" — signature: {sig}'
     push_issue(ctx, name, path, "null-required" if present else "missing-required", msg,
                signature_hint(name, params))
 
@@ -83,7 +83,7 @@ def _resolve_ref(name: str, ctx: MaterializeCtx, mode: str) -> Any:
         return Ph(name) if mode == "expr" else None
     target = ctx.syms[name]
     if ctx.unreached is not None:
-        ctx.unreached.discard(name)
+        ctx.unreached.pop(name, None)
     if isinstance(target, Comp) and is_reserved_call(target.name):
         return RuntimeRef(name, "mutation" if target.name == "Mutation" else "query")
     ctx.visited.add(name)
@@ -94,6 +94,8 @@ def _resolve_ref(name: str, ctx: MaterializeCtx, mode: str) -> Any:
             result = materialize_value(target, ctx)
             if isinstance(result, Element):
                 result.statement_id = name
+            elif is_element_like(result):
+                result["statementId"] = name  # element-shaped data, as the reference tags it
             return result
         return materialize_expr(target, ctx)
     finally:
@@ -344,4 +346,4 @@ def _materialize_component(node: Comp, ctx: MaterializeCtx) -> Any:
         return None
     if drop:
         return None
-    return Element(name, props, partial=ctx.partial)
+    return Element(name, props, partial=ctx.partial, has_dynamic_props=contains_dynamic(props))
