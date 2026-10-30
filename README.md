@@ -28,8 +28,8 @@
 [`examples/wander`](examples/wander) is a full booking concierge built with genui: a Python agent on Gemini with real tools (search, availability, booking) and a React app with custom components (polaroid stay cards, a range calendar, a receipt, a boarding-pass ticket). The agent answers only in OpenUI Lang; genui handles the prompt, the tool events, the streaming and the button clicks.
 
 <p align="center">
-  <img alt="Wander home" src="https://raw.githubusercontent.com/AD1TYA03/genui/main/assets/screenshots/wander-home.jpg" width="49%">
-  <img alt="Wander booking flow" src="https://raw.githubusercontent.com/AD1TYA03/genui/main/assets/screenshots/wander-booking.jpg" width="49%">
+  <a href="https://genui-py.vercel.app/wander"><img alt="Wander: booking a treehouse end to end with a Gemini agent" src="https://raw.githubusercontent.com/AD1TYA03/genui/main/assets/wander.gif" width="820"></a>
+  <br><sub>A real run: Gemini agent → genui → React. <a href="https://genui-py.vercel.app/wander">Watch the full-quality video</a>.</sub>
 </p>
 
 - **Free, MIT.** `pip install genui-py`. No account, no API key, no paid tier.
