@@ -14,6 +14,24 @@
 
 **Generative UI for Python agents.** Your Python backend streams [OpenUI Lang](https://www.openui.com/docs/openui-lang/overview); your React app renders it as live cards, tables, forms and charts with OpenUI's open-source renderer.
 
+<p align="center">
+  <a href="https://genui-py.vercel.app"><b>Live demo &amp; playground</b></a> ·
+  <a href="https://genui-py.vercel.app/gallery">Gallery</a> ·
+  <a href="https://pypi.org/project/genui-py/">PyPI</a> ·
+  <a href="https://www.npmjs.com/package/genui-react">npm</a>
+</p>
+
+<p align="center"><img alt="A UI streaming in token by token" src="https://raw.githubusercontent.com/AD1TYA03/genui/main/assets/demo.gif" width="760"></p>
+
+## See it in action: Wander
+
+[`examples/wander`](examples/wander) is a full booking concierge built with genui: a Python agent on Gemini with real tools (search, availability, booking) and a React app with custom components (polaroid stay cards, a range calendar, a receipt, a boarding-pass ticket). The agent answers only in OpenUI Lang; genui handles the prompt, the tool events, the streaming and the button clicks.
+
+<p align="center">
+  <img alt="Wander home" src="https://raw.githubusercontent.com/AD1TYA03/genui/main/assets/screenshots/wander-home.jpg" width="49%">
+  <img alt="Wander booking flow" src="https://raw.githubusercontent.com/AD1TYA03/genui/main/assets/screenshots/wander-booking.jpg" width="49%">
+</p>
+
 - **Free, MIT.** `pip install genui-py`. No account, no API key, no paid tier.
 - **Your data stays with you.** Prompt generation, validation and streaming run in your process. Zero telemetry, zero network calls.
 - **Any model.** OpenAI, Anthropic, Gemini, or local models through any OpenAI-compatible server (Ollama, vLLM, LM Studio).
@@ -63,16 +81,21 @@ async def chat(request: Request):
     return stream_response(stream, run=run)
 ```
 
-```jsx
-// React
-import { AgentInterface, agUIAdapter, fetchLLM } from "@openuidev/react-ui";
-import { openuiLibrary } from "@openuidev/react-ui/genui-lib";
-
-const llm = fetchLLM({ url: "/api/chat", streamAdapter: agUIAdapter() });
-<AgentInterface llm={llm} componentLibrary={openuiLibrary} />;
+```bash
+npm install genui-react
 ```
 
-A full working app is in [`examples/fastapi-react`](examples/fastapi-react).
+```jsx
+// React
+import { GenUIChat } from "genui-react";
+import "genui-react/styles.css";
+
+<GenUIChat url="/api/chat" />;
+```
+
+Prefer composing OpenUI's components yourself? `genuiLLM({ url })` returns the client for `AgentInterface`, and `GenUIRenderer` renders a single stored response.
+
+A full working app is in [`examples/fastapi-react`](examples/fastapi-react). Backend examples for Anthropic, Ollama (fully local), LangGraph, OpenAI Agents SDK, Pydantic AI and Flask are in [`examples/backends`](examples/backends).
 
 ## What you can stream
 

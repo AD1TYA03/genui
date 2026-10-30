@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.1.1 — 2026-10-31
+
+- Streams from LangGraph (`stream_mode="messages"` tuples), the OpenAI Agents SDK and OpenAI Responses tool calls now work; LangChain tool results become tool events instead of leaking into the UI text.
+- Text before and after a tool call is sent as separate message parts, so an agent's preamble can't corrupt the UI program.
+- `encode_sync()` for WSGI frameworks (Flask, sync Django); `SSE_HEADERS` exported from `genui.stream`.
+- `RunInput.text_messages()` and `RunInput.anthropic(system)` for APIs that reject OpenAI-only history shapes.
+- New examples: Wander booking concierge (Gemini + tools + custom React components), and backends for Anthropic, Ollama, LangGraph, OpenAI Agents SDK, Pydantic AI and Flask.
+- Live demo, gallery and playground: https://genui-py.vercel.app
+
 ## 0.1.0 — 2026-10-31
 
 First release.

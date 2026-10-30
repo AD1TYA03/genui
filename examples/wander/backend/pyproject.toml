@@ -1,0 +1,19 @@
+[project]
+name = "wander-backend"
+version = "0.1.0"
+description = "Wander: an AI concierge for extraordinary stays in India, built with genui."
+requires-python = ">=3.10"
+dependencies = ["genui-py[fastapi,openai]", "uvicorn>=0.30"]
+
+[dependency-groups]
+dev = ["pytest>=8", "httpx>=0.27"]
+
+[tool.uv]
+package = false
+
+[tool.uv.sources]
+genui-py = { path = "../../..", editable = true }
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]

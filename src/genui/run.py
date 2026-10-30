@@ -21,6 +21,30 @@ class RunInput:
     extra: dict[str, Any] = field(default_factory=dict)
     """Any other fields the frontend sent (e.g. ``body: { model }`` in ``fetchLLM``)."""
 
+    def text_messages(self) -> list[dict[str, str]]:
+        """User and assistant turns with text only, merged so roles alternate.
+
+        For APIs that reject OpenAI-only shapes (``system``/``tool`` roles, ``tool_calls``),
+        such as Anthropic Messages or the OpenAI Agents SDK input.
+        """
+        out: list[dict[str, str]] = []
+        for m in self.messages:
+            role, text = m.get("role"), m.get("content") or ""
+            if role not in ("user", "assistant") or not text:
+                continue
+            if out and out[-1]["role"] == role:
+                out[-1]["content"] += "\n\n" + text
+            else:
+                out.append({"role": role, "content": text})
+        return out
+
+    def anthropic(self, system: str) -> dict[str, Any]:
+        """Keyword arguments for ``client.messages.create(**run.anthropic(system_prompt), ...)``."""
+        msgs = self.text_messages()
+        while msgs and msgs[0]["role"] != "user":  # Anthropic requires the first turn to be the user's
+            msgs.pop(0)
+        return {"system": system, "messages": msgs}
+
     @property
     def last_user_message(self) -> str:
         for m in reversed(self.messages):

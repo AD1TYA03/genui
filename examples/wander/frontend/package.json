@@ -1,0 +1,31 @@
+{
+  "name": "wander-frontend",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "generate": "OPENUI_TELEMETRY_DISABLED=1 DO_NOT_TRACK=1 openui generate src/library.tsx --spec --out ../backend/spec.json",
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@openuidev/react-headless": "0.18.1",
+    "@openuidev/react-lang": "1.0.2",
+    "motion": "^12.0.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "zod": "^4.0.0",
+    "zustand": "^4.5.5"
+  },
+  "devDependencies": {
+    "@openuidev/cli": "0.6.1",
+    "@tailwindcss/vite": "^4.0.0",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "@vitejs/plugin-react": "^4.0.0",
+    "tailwindcss": "^4.0.0",
+    "typescript": "~5.7.0",
+    "vite": "^6.0.0"
+  }
+}

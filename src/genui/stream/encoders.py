@@ -11,7 +11,7 @@ from __future__ import annotations
 import json
 import time
 import uuid
-from typing import Any, AsyncIterator, Literal
+from typing import Any, AsyncIterator, Iterator, Literal
 
 from .events import (
     Source,
@@ -47,17 +47,31 @@ async def to_agui(
     message_id = message_id or _id()
     yield sse({"type": "RUN_STARTED", "threadId": thread_id, "runId": run_id})
     text_open = False
+    after_tool = False
     open_tools: set[str] = set()
+
+    def close_text() -> str | None:
+        nonlocal text_open
+        if not text_open:
+            return None
+        text_open = False
+        return sse({"type": "TEXT_MESSAGE_END", "messageId": message_id})
     try:
         async for ev in normalize(source):
             if isinstance(ev, TextDelta):
                 if not ev.text:
                     continue
                 if not text_open:
+                    if after_tool:  # text after a tool call is a new section of the reply
+                        message_id, after_tool = _id(), False
                     yield sse({"type": "TEXT_MESSAGE_START", "messageId": message_id, "role": "assistant"})
                     text_open = True
                 yield sse({"type": "TEXT_MESSAGE_CONTENT", "messageId": message_id, "delta": ev.text})
             elif isinstance(ev, ToolCallStart):
+                end = close_text()
+                if end:
+                    yield end
+                after_tool = True
                 open_tools.add(ev.id)
                 yield sse({"type": "TOOL_CALL_START", "toolCallId": ev.id, "toolCallName": ev.name,
                            "parentMessageId": message_id})
@@ -67,6 +81,7 @@ async def to_agui(
                 open_tools.discard(ev.id)
                 yield sse({"type": "TOOL_CALL_END", "toolCallId": ev.id})
             elif isinstance(ev, ToolResult):
+                after_tool = True
                 yield sse({"type": "TOOL_CALL_RESULT", "messageId": _id(), "toolCallId": ev.id,
                            "content": ev.content, "role": "tool"})
             elif isinstance(ev, StreamError):
@@ -114,6 +129,30 @@ async def to_openai(source: Source, *, model: str = "genui") -> AsyncIterator[st
         return
     yield chunk({}, finish)
     yield sse("[DONE]")
+
+
+SSE_HEADERS = {"Cache-Control": "no-cache, no-transform", "Connection": "keep-alive", "X-Accel-Buffering": "no"}
+"""Headers to send with an SSE response (any framework)."""
+
+
+def encode_sync(source: Source, format: Format = "ag-ui", **kw: Any) -> Iterator[str]:
+    """Like :func:`encode`, but a plain generator for WSGI frameworks (Flask, sync Django).
+
+    Runs the async encoder on a private event loop, one chunk at a time.
+    """
+    import asyncio
+
+    agen = encode(source, format, **kw)
+    loop = asyncio.new_event_loop()
+    try:
+        while True:
+            try:
+                yield loop.run_until_complete(agen.__anext__())
+            except StopAsyncIteration:
+                break
+    finally:
+        loop.run_until_complete(agen.aclose())
+        loop.close()
 
 
 def encode(source: Source, format: Format = "ag-ui", **kw: Any) -> AsyncIterator[str]:

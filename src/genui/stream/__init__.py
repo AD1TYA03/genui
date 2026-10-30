@@ -1,6 +1,6 @@
 """Streaming: adapt any agent/LLM stream and encode it for OpenUI's React client."""
 
-from .encoders import Format, encode, sse, to_agui, to_openai
+from .encoders import SSE_HEADERS, Format, encode, encode_sync, sse, to_agui, to_openai
 from .events import (
     Event,
     StreamError,
@@ -13,6 +13,6 @@ from .events import (
 )
 
 __all__ = [
-    "Event", "Format", "StreamError", "TextDelta", "ToolCallArgs", "ToolCallEnd", "ToolCallStart",
+    "SSE_HEADERS", "Event", "Format", "encode_sync", "StreamError", "TextDelta", "ToolCallArgs", "ToolCallEnd", "ToolCallStart",
     "ToolResult", "encode", "normalize", "sse", "to_agui", "to_openai",
 ]

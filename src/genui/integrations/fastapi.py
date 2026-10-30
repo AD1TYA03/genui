@@ -10,10 +10,8 @@ except ImportError as e:  # pragma: no cover
     raise ImportError("genui.integrations.fastapi needs Starlette: pip install 'genui[fastapi]'") from e
 
 from ..run import RunInput, parse_run_input
-from ..stream import Format, encode
+from ..stream import SSE_HEADERS, Format, encode
 from ..stream.events import Source
-
-SSE_HEADERS = {"Cache-Control": "no-cache, no-transform", "Connection": "keep-alive", "X-Accel-Buffering": "no"}
 
 
 def stream_response(source: Source, *, format: Format = "ag-ui", run: RunInput | None = None, **kw: Any) -> StreamingResponse:

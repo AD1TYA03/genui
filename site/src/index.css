@@ -1,0 +1,116 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Inter Variable", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "JetBrains Mono Variable", ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  --color-ink: #0a0a12;
+  --color-ink-2: #0e0e18;
+  --color-panel: #12121d;
+  --color-panel-2: #181826;
+  --color-line: rgb(255 255 255 / 0.08);
+  --color-line-strong: rgb(255 255 255 / 0.14);
+  --color-fg: #f4f4f8;
+  --color-muted: #a1a1b5;
+  --color-dim: #6e6e85;
+  --color-cyan: #22d3ee;
+  --color-violet: #8b5cf6;
+  --color-pink: #f472b6;
+
+  --animate-blink: blink 1.05s steps(1) infinite;
+  @keyframes blink {
+    50% {
+      opacity: 0;
+    }
+  }
+}
+
+@layer base {
+  html {
+    color-scheme: dark;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+  }
+  body {
+    background: var(--color-ink);
+    color: var(--color-fg);
+    font-family: var(--font-sans);
+    font-feature-settings: "cv11", "ss01", "ss03";
+  }
+  ::selection {
+    background: rgb(139 92 246 / 0.45);
+    color: #fff;
+  }
+  :focus-visible {
+    outline: 2px solid var(--color-cyan);
+    outline-offset: 2px;
+  }
+}
+
+@utility text-gradient {
+  background-image: linear-gradient(90deg, #22d3ee 0%, #8b5cf6 55%, #f472b6 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+@utility bg-brand {
+  background-image: linear-gradient(90deg, #22d3ee 0%, #8b5cf6 55%, #f472b6 100%);
+}
+
+/* 1px gradient hairline border on a rounded box */
+@utility ring-brand {
+  position: relative;
+  &::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    padding: 1px;
+    border-radius: inherit;
+    background: linear-gradient(135deg, rgb(34 211 238 / 0.55), rgb(139 92 246 / 0.35) 45%, rgb(244 114 182 / 0.5));
+    -webkit-mask:
+      linear-gradient(#000 0 0) content-box,
+      linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor;
+    mask-composite: exclude;
+    pointer-events: none;
+  }
+}
+
+@utility bg-grid {
+  background-image:
+    linear-gradient(rgb(255 255 255 / 0.035) 1px, transparent 1px),
+    linear-gradient(90deg, rgb(255 255 255 / 0.035) 1px, transparent 1px);
+  background-size: 48px 48px;
+}
+
+@utility scrollbar-thin {
+  scrollbar-width: thin;
+  scrollbar-color: rgb(255 255 255 / 0.14) transparent;
+}
+
+/* Syntax colours (shared by OpenUI Lang, Python and TSX) */
+.tok-comment { color: #6e6e85; font-style: italic; }
+.tok-string { color: #a5f3c4; }
+.tok-number { color: #fbbf77; }
+.tok-keyword { color: #c4a5ff; }
+.tok-component { color: #67e8f9; }
+.tok-ident { color: #e4e4ee; }
+.tok-root { color: #f9a8d4; font-weight: 600; }
+.tok-action { color: #f472b6; }
+.tok-var { color: #fde68a; }
+.tok-punct { color: #8a8aa3; }
+.tok-fn { color: #93c5fd; }
+.tok-tag { color: #67e8f9; }
+.tok-attr { color: #c4a5ff; }
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+}

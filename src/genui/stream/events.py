@@ -78,6 +78,8 @@ class _Normalizer:
     def __init__(self) -> None:
         self.tool_ids: dict[int, str] = {}  # OpenAI tool-call index -> id
         self.block_tools: dict[int, str] = {}  # Anthropic content-block index -> tool id
+        self.resp_items: dict[str, str] = {}  # Responses API output item id -> call id
+        self.lc_started: set[str] = set()  # LangChain tool calls already started
 
     def convert(self, item: Any) -> list[Event]:
         if isinstance(item, EVENT_TYPES):
@@ -87,36 +89,97 @@ class _Normalizer:
         if item is None:
             return []
 
+        # LangGraph stream_mode="messages" yields (message_chunk, metadata) tuples
+        if isinstance(item, tuple) and item:
+            return self.convert(item[0])
+
         # OpenAI Chat Completions chunk
         choices = _get(item, "choices")
         if choices is not None:
             return self._openai(choices)
 
-        # Anthropic Messages stream event
         etype = _get(item, "type")
+
+        # OpenAI Agents SDK stream events
+        if etype == "raw_response_event":
+            return self.convert(_get(item, "data"))
+        if etype == "run_item_stream_event":
+            return self._agents_item(item)
+        if etype == "agent_updated_stream_event":
+            return []
+
+        # Anthropic Messages stream event
         if isinstance(etype, str) and etype.startswith(("content_block_", "message_", "ping", "error")):
             return self._anthropic(item, etype)
 
         # OpenAI Responses API stream event
         if isinstance(etype, str) and etype.startswith("response."):
-            if etype == "response.output_text.delta":
-                return [TextDelta(_get(item, "delta", ""))]
-            if etype == "response.error" or etype == "response.failed":
-                return [StreamError(str(_get(item, "message", "") or "LLM error"))]
-            return []
+            return self._responses(item, etype)
+
+        # LangChain tool result message: a tool result, never UI text
+        if etype == "tool" or type(item).__name__ in ("ToolMessage", "ToolMessageChunk"):
+            tid = _get(item, "tool_call_id")
+            content = _get(item, "content")
+            return [ToolResult(tid, content if isinstance(content, str) else str(content))] if tid else []
 
         # LangChain / LangGraph message chunk (AIMessageChunk), or anything with .content
+        out: list[Event] = []
         content = _get(item, "content")
         if isinstance(content, str):
-            return [TextDelta(content)] if content else []
-        if isinstance(content, list):
+            if content:
+                out.append(TextDelta(content))
+        elif isinstance(content, list):
             text = "".join(_get(p, "text", "") for p in content if _get(p, "type") in ("text", None))
-            return [TextDelta(text)] if text else []
+            if text:
+                out.append(TextDelta(text))
+        elif content is None and _get(item, "tool_call_chunks") is None:
+            raise TypeError(
+                f"genui can't stream items of type {type(item).__name__}. Yield str, a genui event, "
+                "an OpenAI/Anthropic stream item, an OpenAI Agents SDK event, or a LangChain message chunk."
+            )
+        for tc in _get(item, "tool_call_chunks") or []:
+            idx = _get(tc, "index", 0) or 0
+            tid, name, args = _get(tc, "id"), _get(tc, "name"), _get(tc, "args")
+            if tid and tid not in self.lc_started:
+                self.lc_started.add(tid)
+                self.tool_ids[idx] = tid
+                out.append(ToolCallStart(tid, name or ""))
+            if args and idx in self.tool_ids:
+                out.append(ToolCallArgs(self.tool_ids[idx], args))
+        return out
 
-        raise TypeError(
-            f"genui can't stream items of type {type(item).__name__}. Yield str, a genui event, "
-            "an OpenAI/Anthropic stream item, or a LangChain message chunk."
-        )
+    def _responses(self, item: Any, etype: str) -> list[Event]:
+        if etype == "response.output_text.delta":
+            return [TextDelta(_get(item, "delta", ""))]
+        if etype == "response.output_item.added":
+            it = _get(item, "item")
+            if _get(it, "type") == "function_call":
+                tid = _get(it, "call_id") or _get(it, "id")
+                self.resp_items[_get(it, "id")] = tid
+                return [ToolCallStart(tid, _get(it, "name", ""))]
+            return []
+        if etype == "response.function_call_arguments.delta":
+            tid = self.resp_items.get(_get(item, "item_id"))
+            return [ToolCallArgs(tid, _get(item, "delta", ""))] if tid else []
+        if etype == "response.output_item.done":
+            it = _get(item, "item")
+            tid = self.resp_items.pop(_get(it, "id"), None)
+            return [ToolCallEnd(tid)] if tid else []
+        if etype in ("response.error", "response.failed", "error"):
+            err = _get(item, "error")
+            msg = _get(err, "message") if err is not None else _get(item, "message")
+            return [StreamError(str(msg or "LLM error"))]
+        return []
+
+    def _agents_item(self, item: Any) -> list[Event]:
+        name, run_item = _get(item, "name"), _get(item, "item")
+        raw = _get(run_item, "raw_item")
+        if name == "tool_output":
+            tid = _get(raw, "call_id") or _get(raw, "tool_call_id")
+            out = _get(run_item, "output")
+            return [ToolResult(tid, out if isinstance(out, str) else str(out))] if tid else []
+        # tool_called / message_output_created repeat what raw events already streamed
+        return []
 
     def _openai(self, choices: Any) -> list[Event]:
         if not choices:
@@ -145,7 +208,7 @@ class _Normalizer:
     def _anthropic(self, item: Any, etype: str) -> list[Event]:
         if etype == "content_block_start":
             block = _get(item, "content_block")
-            if _get(block, "type") == "tool_use":
+            if _get(block, "type") in ("tool_use", "server_tool_use"):
                 tid = _get(block, "id")
                 self.block_tools[_get(item, "index", 0)] = tid
                 return [ToolCallStart(tid, _get(block, "name", ""))]

@@ -1,0 +1,91 @@
+[
+  {
+    "id": "travel-booking",
+    "title": "Travel booking",
+    "description": "Hotel shortlist plus a booking form with date pickers, guest count and room type.",
+    "prompt": "I want to book a 4-night trip to Lisbon in late March for 2 adults. Show me 3 hotel options with nightly price, rating and neighborhood, and give me a booking form with check-in and check-out date pickers, a guest count selector and room type.",
+    "file": "travel-booking.oui",
+    "model": "claude-haiku via genui prompt",
+    "components": [
+      "Table",
+      "Form",
+      "DatePicker",
+      "RadioGroup"
+    ],
+    "recordedAt": "2026-10-31"
+  },
+  {
+    "id": "product-comparison",
+    "title": "Product comparison",
+    "description": "Spec-by-spec comparison table with a recommendation.",
+    "prompt": "Compare three popular noise-cancelling headphones side by side: Sony WH-1000XM5, Bose QuietComfort Ultra and Apple AirPods Max. Include list price, battery life, weight, noise cancelling, codecs and multipoint, then recommend one for frequent flyers.",
+    "file": "product-comparison.oui",
+    "model": "claude-haiku via genui prompt",
+    "components": [
+      "Table",
+      "Card",
+      "MarkDownRenderer"
+    ],
+    "recordedAt": "2026-10-31"
+  },
+  {
+    "id": "analytics-dashboard",
+    "title": "Analytics dashboard",
+    "description": "KPI cards, an MRR trend line, stacked signups and a plan-mix donut.",
+    "prompt": "Give me a dashboard for my SaaS for the last 6 months: MRR, active users, churn and conversion as headline metrics, an MRR trend chart, signups by channel, and plan mix.",
+    "file": "analytics-dashboard.oui",
+    "model": "claude-haiku via genui prompt",
+    "components": [
+      "OverviewCardBlock",
+      "LineChart",
+      "BarChart",
+      "PieChart"
+    ],
+    "recordedAt": "2026-10-31"
+  },
+  {
+    "id": "appointment-form",
+    "title": "Appointment form",
+    "description": "A complete booking form: selects, date picker, time chips and radio groups.",
+    "prompt": "I need to book a dental cleaning. Make me an appointment request form: choose a clinic location, preferred date, time slot, dentist preference, whether I'm a new patient, insurance provider and any notes.",
+    "file": "appointment-form.oui",
+    "model": "claude-haiku via genui prompt",
+    "components": [
+      "Form",
+      "Select",
+      "DatePicker",
+      "Chips"
+    ],
+    "recordedAt": "2026-10-31"
+  },
+  {
+    "id": "support-triage",
+    "title": "Support ticket triage",
+    "description": "Prioritised ticket table with tags, owners and first-response steps.",
+    "prompt": "Triage these incoming support tickets for me: 1) 'Checkout fails with error 502 since this morning' from Acme Corp (enterprise), 2) 'How do I export my invoices?' from a free user, 3) 'SSO login loops back to the sign-in page' from Globex (business), 4) 'Feature request: dark mode in the mobile app', 5) 'I was charged twice this month' from a pro user. Show priority, category, suggested owner and next steps.",
+    "file": "support-triage.oui",
+    "model": "claude-haiku via genui prompt",
+    "components": [
+      "Callout",
+      "Table",
+      "Tag",
+      "Steps"
+    ],
+    "recordedAt": "2026-10-31"
+  },
+  {
+    "id": "recipe-card",
+    "title": "Recipe card",
+    "description": "Times, a scalable ingredient table, steps and nutrition facts.",
+    "prompt": "Give me a recipe card for a weeknight Thai green curry for 4: prep and cook time, difficulty, ingredients list, step-by-step instructions, nutrition per serving, and a quick option to scale servings.",
+    "file": "recipe-card.oui",
+    "model": "claude-haiku via genui prompt",
+    "components": [
+      "Card",
+      "EntityList",
+      "Table",
+      "Steps"
+    ],
+    "recordedAt": "2026-10-31"
+  }
+]

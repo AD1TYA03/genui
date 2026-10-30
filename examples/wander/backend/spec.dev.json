@@ -1,0 +1,572 @@
+{
+  "id": "wander",
+  "root": "Stack",
+  "schema": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "Stack": {
+        "$ref": "#/$defs/Stack"
+      },
+      "Heading": {
+        "$ref": "#/$defs/Heading"
+      },
+      "Text": {
+        "$ref": "#/$defs/Text"
+      },
+      "StayGrid": {
+        "$ref": "#/$defs/StayGrid"
+      },
+      "StayCard": {
+        "$ref": "#/$defs/StayCard"
+      },
+      "StayDetail": {
+        "$ref": "#/$defs/StayDetail"
+      },
+      "DateRangePicker": {
+        "$ref": "#/$defs/DateRangePicker"
+      },
+      "GuestPicker": {
+        "$ref": "#/$defs/GuestPicker"
+      },
+      "PriceSummary": {
+        "$ref": "#/$defs/PriceSummary"
+      },
+      "Button": {
+        "$ref": "#/$defs/Button"
+      },
+      "Suggestions": {
+        "$ref": "#/$defs/Suggestions"
+      },
+      "Callout": {
+        "$ref": "#/$defs/Callout"
+      },
+      "BookingTicket": {
+        "$ref": "#/$defs/BookingTicket"
+      },
+      "Form": {
+        "$ref": "#/$defs/Form"
+      }
+    },
+    "required": [
+      "Stack",
+      "Heading",
+      "Text",
+      "StayGrid",
+      "StayCard",
+      "StayDetail",
+      "DateRangePicker",
+      "GuestPicker",
+      "PriceSummary",
+      "Button",
+      "Suggestions",
+      "Callout",
+      "BookingTicket",
+      "Form"
+    ],
+    "additionalProperties": false,
+    "$defs": {
+      "Stack": {
+        "type": "object",
+        "properties": {
+          "children": {
+            "type": "array",
+            "items": {}
+          },
+          "direction": {
+            "type": "string",
+            "enum": [
+              "column",
+              "row"
+            ]
+          },
+          "gap": {
+            "type": "string",
+            "enum": [
+              "sm",
+              "md",
+              "lg"
+            ]
+          }
+        },
+        "required": [
+          "children"
+        ],
+        "additionalProperties": false,
+        "description": "Vertical or horizontal layout container; the root of every response. Defaults: direction \"column\", gap \"md\"."
+      },
+      "Heading": {
+        "type": "object",
+        "properties": {
+          "text": {
+            "type": "string"
+          },
+          "subtitle": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "text"
+        ],
+        "additionalProperties": false,
+        "description": "Section title with an optional one-line subtitle."
+      },
+      "Text": {
+        "type": "object",
+        "properties": {
+          "content": {
+            "type": "string"
+          },
+          "tone": {
+            "type": "string",
+            "enum": [
+              "default",
+              "muted"
+            ]
+          }
+        },
+        "required": [
+          "content"
+        ],
+        "additionalProperties": false,
+        "description": "Paragraph of prose. Supports light markdown. tone \"muted\" for secondary copy."
+      },
+      "StayGrid": {
+        "type": "object",
+        "properties": {
+          "stays": {
+            "type": "array",
+            "items": {
+              "$ref": "#/$defs/StayCard"
+            }
+          }
+        },
+        "required": [
+          "stays"
+        ],
+        "additionalProperties": false,
+        "description": "Responsive grid of StayCard results."
+      },
+      "StayCard": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "location": {
+            "type": "string"
+          },
+          "image": {
+            "type": "string"
+          },
+          "pricePerNight": {
+            "type": "number"
+          },
+          "rating": {
+            "type": "number"
+          },
+          "tags": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "action": {
+            "$ref": "#/$defs/ActionExpression"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "location",
+          "image",
+          "pricePerNight",
+          "rating"
+        ],
+        "additionalProperties": false,
+        "description": "One stay in search results. image MUST be a URL returned by a tool. pricePerNight in INR. action usually @ToAssistant(\"Show <name>\", {\"stayId\": id})."
+      },
+      "StayDetail": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "location": {
+            "type": "string"
+          },
+          "images": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "description": {
+            "type": "string"
+          },
+          "amenities": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "pricePerNight": {
+            "type": "number"
+          },
+          "rating": {
+            "type": "number"
+          },
+          "reviews": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "location",
+          "images",
+          "description",
+          "amenities",
+          "pricePerNight",
+          "rating",
+          "reviews"
+        ],
+        "additionalProperties": false,
+        "description": "Full stay page: image gallery, description, amenities, price per night (INR), rating and review count. images MUST come from a tool."
+      },
+      "DateRangePicker": {
+        "type": "object",
+        "properties": {
+          "label": {
+            "type": "string"
+          },
+          "checkIn": {
+            "type": "string"
+          },
+          "checkOut": {
+            "type": "string"
+          },
+          "blocked": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "minNights": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "label",
+          "checkIn",
+          "checkOut"
+        ],
+        "additionalProperties": false,
+        "description": "Two-month calendar to pick check-in/check-out (ISO YYYY-MM-DD). blocked dates are disabled."
+      },
+      "GuestPicker": {
+        "type": "object",
+        "properties": {
+          "label": {
+            "type": "string"
+          },
+          "adults": {
+            "type": "number"
+          },
+          "children": {
+            "type": "number"
+          },
+          "max": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "label",
+          "adults",
+          "children"
+        ],
+        "additionalProperties": false,
+        "description": "Adults and children steppers. max is the total guest cap."
+      },
+      "PriceSummary": {
+        "type": "object",
+        "properties": {
+          "lines": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "label": {
+                  "type": "string"
+                },
+                "amount": {
+                  "type": "number"
+                }
+              },
+              "required": [
+                "label",
+                "amount"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "total": {
+            "type": "number"
+          },
+          "currency": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "lines",
+          "total"
+        ],
+        "additionalProperties": false,
+        "description": "Itemised price breakdown and total. Amounts in INR unless currency is set."
+      },
+      "Button": {
+        "type": "object",
+        "properties": {
+          "label": {
+            "type": "string"
+          },
+          "action": {
+            "$ref": "#/$defs/ActionExpression"
+          },
+          "variant": {
+            "type": "string",
+            "enum": [
+              "primary",
+              "secondary",
+              "ghost"
+            ]
+          }
+        },
+        "required": [
+          "label"
+        ],
+        "additionalProperties": false,
+        "description": "Clickable button."
+      },
+      "Suggestions": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "additionalProperties": false,
+        "description": "Tappable follow-up chips; tapping sends the text as the next user message."
+      },
+      "Callout": {
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string"
+          },
+          "body": {
+            "type": "string"
+          },
+          "tone": {
+            "type": "string",
+            "enum": [
+              "info",
+              "success",
+              "warning"
+            ]
+          }
+        },
+        "required": [
+          "title",
+          "body"
+        ],
+        "additionalProperties": false,
+        "description": "Highlighted note."
+      },
+      "BookingTicket": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string"
+          },
+          "stayName": {
+            "type": "string"
+          },
+          "location": {
+            "type": "string"
+          },
+          "image": {
+            "type": "string"
+          },
+          "checkIn": {
+            "type": "string"
+          },
+          "checkOut": {
+            "type": "string"
+          },
+          "guests": {
+            "type": "number"
+          },
+          "total": {
+            "type": "number"
+          },
+          "currency": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "stayName",
+          "location",
+          "image",
+          "checkIn",
+          "checkOut",
+          "guests",
+          "total"
+        ],
+        "additionalProperties": false,
+        "description": "Boarding-pass style booking confirmation. image MUST come from a tool."
+      },
+      "Form": {
+        "type": "object",
+        "properties": {
+          "children": {
+            "type": "array",
+            "items": {}
+          }
+        },
+        "required": [
+          "children"
+        ],
+        "additionalProperties": false,
+        "description": "Groups pickers with a submit Button whose action is @ToAssistant(...), so the selections (form state) reach the assistant."
+      },
+      "ActionExpression": {
+        "anyOf": [
+          {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string",
+                "const": "open_url"
+              },
+              "url": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "type",
+              "url"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string",
+                "const": "continue_conversation"
+              },
+              "context": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "type"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string"
+              },
+              "params": {
+                "type": "object",
+                "propertyNames": {
+                  "type": "string"
+                },
+                "additionalProperties": {}
+              }
+            },
+            "required": [
+              "type"
+            ],
+            "additionalProperties": false
+          }
+        ]
+      }
+    }
+  },
+  "components": {
+    "Stack": {
+      "signature": "Stack(children: any[], direction?: \"column\" | \"row\", gap?: \"sm\" | \"md\" | \"lg\")",
+      "description": "Vertical or horizontal layout container; the root of every response. Defaults: direction \"column\", gap \"md\"."
+    },
+    "Heading": {
+      "signature": "Heading(text: string, subtitle?: string)",
+      "description": "Section title with an optional one-line subtitle."
+    },
+    "Text": {
+      "signature": "Text(content: string, tone?: \"default\" | \"muted\")",
+      "description": "Paragraph of prose. Supports light markdown. tone \"muted\" for secondary copy."
+    },
+    "StayGrid": {
+      "signature": "StayGrid(stays: StayCard[])",
+      "description": "Responsive grid of StayCard results."
+    },
+    "StayCard": {
+      "signature": "StayCard(id: string, name: string, location: string, image: string, pricePerNight: number, rating: number, tags?: string[], action?: ActionExpression)",
+      "description": "One stay in search results. image MUST be a URL returned by a tool. pricePerNight in INR. action usually @ToAssistant(\"Show <name>\", {\"stayId\": id})."
+    },
+    "StayDetail": {
+      "signature": "StayDetail(id: string, name: string, location: string, images: string[], description: string, amenities: string[], pricePerNight: number, rating: number, reviews: number)",
+      "description": "Full stay page: image gallery, description, amenities, price per night (INR), rating and review count. images MUST come from a tool."
+    },
+    "DateRangePicker": {
+      "signature": "DateRangePicker(label: string, checkIn: $binding<string>, checkOut: $binding<string>, blocked?: string[], minNights?: number)",
+      "description": "Two-month calendar to pick check-in/check-out (ISO YYYY-MM-DD). blocked dates are disabled."
+    },
+    "GuestPicker": {
+      "signature": "GuestPicker(label: string, adults: $binding<number>, children: $binding<number>, max?: number)",
+      "description": "Adults and children steppers. max is the total guest cap."
+    },
+    "PriceSummary": {
+      "signature": "PriceSummary(lines: {label: string, amount: number}[], total: number, currency?: string)",
+      "description": "Itemised price breakdown and total. Amounts in INR unless currency is set."
+    },
+    "Button": {
+      "signature": "Button(label: string, action?: ActionExpression, variant?: \"primary\" | \"secondary\" | \"ghost\")",
+      "description": "Clickable button."
+    },
+    "Suggestions": {
+      "signature": "Suggestions(items: string[])",
+      "description": "Tappable follow-up chips; tapping sends the text as the next user message."
+    },
+    "Callout": {
+      "signature": "Callout(title: string, body: string, tone?: \"info\" | \"success\" | \"warning\")",
+      "description": "Highlighted note."
+    },
+    "BookingTicket": {
+      "signature": "BookingTicket(code: string, stayName: string, location: string, image: string, checkIn: string, checkOut: string, guests: number, total: number, currency?: string)",
+      "description": "Boarding-pass style booking confirmation. image MUST come from a tool."
+    },
+    "Form": {
+      "signature": "Form(children: any[])",
+      "description": "Groups pickers with a submit Button whose action is @ToAssistant(...), so the selections (form state) reach the assistant."
+    }
+  }
+}
