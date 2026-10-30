@@ -1,0 +1,197 @@
+{
+  "root": "Row",
+  "components": {
+    "Row": {
+      "signature": "Row(items: (Link | ShareButton)[])",
+      "description": "A row"
+    },
+    "Link": {
+      "signature": "Link(label: string, to: @OpenUrl)",
+      "description": "A link that can only navigate"
+    },
+    "ShareButton": {
+      "signature": "ShareButton(label: string, share?: @CopyToClipboard | @OpenUrl, ask?: @ToAssistant)",
+      "description": "Copy or open a URL"
+    }
+  },
+  "actions": {
+    "CopyToClipboard": {
+      "signature": "CopyToClipboard(text: string)",
+      "description": "Copy text to the clipboard"
+    }
+  },
+  "schema": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "Row": {
+        "$ref": "#/$defs/Row"
+      },
+      "Link": {
+        "$ref": "#/$defs/Link"
+      },
+      "ShareButton": {
+        "$ref": "#/$defs/ShareButton"
+      }
+    },
+    "required": [
+      "Row",
+      "Link",
+      "ShareButton"
+    ],
+    "additionalProperties": false,
+    "$defs": {
+      "Row": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/Link"
+                },
+                {
+                  "$ref": "#/$defs/ShareButton"
+                }
+              ]
+            }
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "additionalProperties": false,
+        "description": "A row"
+      },
+      "Link": {
+        "type": "object",
+        "properties": {
+          "label": {
+            "type": "string"
+          },
+          "to": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/OpenUrl"
+              }
+            ]
+          }
+        },
+        "required": [
+          "label",
+          "to"
+        ],
+        "additionalProperties": false,
+        "description": "A link that can only navigate"
+      },
+      "OpenUrl": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "const": "open_url"
+          },
+          "url": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "url"
+        ],
+        "additionalProperties": false
+      },
+      "ShareButton": {
+        "type": "object",
+        "properties": {
+          "label": {
+            "type": "string"
+          },
+          "share": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/CopyToClipboard"
+              },
+              {
+                "$ref": "#/$defs/OpenUrl"
+              }
+            ]
+          },
+          "ask": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/ToAssistant"
+              }
+            ]
+          }
+        },
+        "required": [
+          "label"
+        ],
+        "additionalProperties": false,
+        "description": "Copy or open a URL"
+      },
+      "CopyToClipboard": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "const": "CopyToClipboard"
+          },
+          "params": {
+            "type": "object",
+            "properties": {
+              "text": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "text"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "type",
+          "params"
+        ],
+        "additionalProperties": false
+      },
+      "ToAssistant": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "const": "continue_conversation"
+          },
+          "context": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "type"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "actions": {
+      "CopyToClipboard": {
+        "description": "Copy text to the clipboard",
+        "params": {
+          "type": "object",
+          "properties": {
+            "text": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "text"
+          ],
+          "additionalProperties": false
+        }
+      }
+    }
+  },
+  "id": "restricted"
+}

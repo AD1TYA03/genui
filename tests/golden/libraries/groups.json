@@ -1,0 +1,250 @@
+{
+  "root": "Page",
+  "components": {
+    "Page": {
+      "signature": "Page(title: string, body: Stack[])",
+      "description": "The page shell"
+    },
+    "Stack": {
+      "signature": "Stack(children: (Text | Image | Badge | Chart)[], direction?: \"row\" | \"column\", gap?: number)",
+      "description": "Vertical or horizontal layout"
+    },
+    "Text": {
+      "signature": "Text(text: string, size?: \"s\" | \"m\" | \"l\")",
+      "description": "A run of text"
+    },
+    "Image": {
+      "signature": "Image(src: string, alt?: string)",
+      "description": ""
+    },
+    "Badge": {
+      "signature": "Badge(label: string)",
+      "description": "A small label"
+    },
+    "Chart": {
+      "signature": "Chart(labels: string[], series: {name: string, values: number[]}[], height?: number)",
+      "description": "A line chart; values are plotted in order"
+    }
+  },
+  "componentGroups": [
+    {
+      "name": "Layout",
+      "components": [
+        "Page",
+        "Stack"
+      ],
+      "notes": [
+        "- Use Stack for every row of content.",
+        "- Page must be the root."
+      ]
+    },
+    {
+      "name": "Content",
+      "components": [
+        "Text",
+        "Image",
+        "Text",
+        "Missing"
+      ]
+    },
+    {
+      "name": "Empty notes",
+      "components": [
+        "Image"
+      ],
+      "notes": []
+    }
+  ],
+  "schema": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "Page": {
+        "$ref": "#/$defs/Page"
+      },
+      "Stack": {
+        "$ref": "#/$defs/Stack"
+      },
+      "Text": {
+        "$ref": "#/$defs/Text"
+      },
+      "Image": {
+        "$ref": "#/$defs/Image"
+      },
+      "Badge": {
+        "$ref": "#/$defs/Badge"
+      },
+      "Chart": {
+        "$ref": "#/$defs/Chart"
+      }
+    },
+    "required": [
+      "Page",
+      "Stack",
+      "Text",
+      "Image",
+      "Badge",
+      "Chart"
+    ],
+    "additionalProperties": false,
+    "$defs": {
+      "Page": {
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string"
+          },
+          "body": {
+            "type": "array",
+            "items": {
+              "$ref": "#/$defs/Stack"
+            }
+          }
+        },
+        "required": [
+          "title",
+          "body"
+        ],
+        "additionalProperties": false,
+        "description": "The page shell"
+      },
+      "Stack": {
+        "type": "object",
+        "properties": {
+          "children": {
+            "type": "array",
+            "items": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/Text"
+                },
+                {
+                  "$ref": "#/$defs/Image"
+                },
+                {
+                  "$ref": "#/$defs/Badge"
+                },
+                {
+                  "$ref": "#/$defs/Chart"
+                }
+              ]
+            }
+          },
+          "direction": {
+            "type": "string",
+            "enum": [
+              "row",
+              "column"
+            ]
+          },
+          "gap": {
+            "type": [
+              "number",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "children",
+          "gap"
+        ],
+        "additionalProperties": false,
+        "description": "Vertical or horizontal layout"
+      },
+      "Text": {
+        "type": "object",
+        "properties": {
+          "text": {
+            "type": "string"
+          },
+          "size": {
+            "type": "string",
+            "enum": [
+              "s",
+              "m",
+              "l"
+            ]
+          }
+        },
+        "required": [
+          "text"
+        ],
+        "additionalProperties": false,
+        "description": "A run of text"
+      },
+      "Image": {
+        "type": "object",
+        "properties": {
+          "src": {
+            "type": "string"
+          },
+          "alt": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "src"
+        ],
+        "additionalProperties": false
+      },
+      "Badge": {
+        "type": "object",
+        "properties": {
+          "label": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "label"
+        ],
+        "additionalProperties": false,
+        "description": "A small label"
+      },
+      "Chart": {
+        "type": "object",
+        "properties": {
+          "labels": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "series": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "name": {
+                  "type": "string"
+                },
+                "values": {
+                  "type": "array",
+                  "items": {
+                    "type": "number"
+                  }
+                }
+              },
+              "required": [
+                "name",
+                "values"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "height": {
+            "default": 240,
+            "type": "number"
+          }
+        },
+        "required": [
+          "labels",
+          "series",
+          "height"
+        ],
+        "additionalProperties": false,
+        "description": "A line chart; values are plotted in order"
+      }
+    }
+  },
+  "id": "groups"
+}

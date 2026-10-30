@@ -1,0 +1,102 @@
+{
+  "library": "spec/fixtures/1.0/library.json",
+  "options": {
+    "tools": [
+      "list_orders",
+      {
+        "name": "get_metrics",
+        "description": "Daily metrics for the dashboard",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "days": {
+              "type": "integer"
+            },
+            "region": {
+              "type": "string",
+              "enum": [
+                "eu",
+                "us"
+              ]
+            },
+            "tags": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          },
+          "required": [
+            "days"
+          ]
+        },
+        "outputSchema": {
+          "type": "object",
+          "properties": {
+            "total": {
+              "type": "number"
+            },
+            "ok": {
+              "type": "boolean"
+            },
+            "label": {
+              "type": "string"
+            },
+            "rows": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "day": {
+                    "type": "string"
+                  },
+                  "count": {
+                    "type": "number"
+                  }
+                }
+              }
+            },
+            "meta": {
+              "type": "object",
+              "properties": {
+                "source": {
+                  "type": "string"
+                },
+                "extra": {}
+              }
+            },
+            "nothing": {
+              "type": "null"
+            }
+          }
+        },
+        "annotations": {
+          "readOnlyHint": true
+        }
+      },
+      {
+        "name": "create_order",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "title": {
+              "type": "string"
+            },
+            "qty": {
+              "type": "number"
+            }
+          },
+          "required": [
+            "title",
+            "qty"
+          ]
+        },
+        "outputSchema": {
+          "type": "object"
+        }
+      },
+      "refresh_cache"
+    ],
+    "bindings": false
+  }
+}

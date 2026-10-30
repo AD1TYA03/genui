@@ -1,0 +1,8 @@
+[project]
+name = "genui-example-backend"
+version = "0.0.0"
+requires-python = ">=3.10"
+dependencies = ["genui-py[fastapi,openai]", "uvicorn>=0.30"]
+
+[tool.uv.sources]
+genui-py = { path = "../../..", editable = true }

@@ -1,0 +1,17 @@
+{
+  "library": "spec/fixtures/1.0/library.json",
+  "options": {
+    "preamble": "You are a support agent. Answer in openui-lang only.",
+    "examples": [
+      "root = Card(\"Hi\", [t])\nt = Text(\"Hello\")",
+      "root = Stack([m])\nm = Metric(\"Orders\", 42)"
+    ],
+    "toolExamples": [
+      "data = Query(\"list_orders\", {}, {rows: []})"
+    ],
+    "additionalRules": [
+      "Never use more than 3 Metrics.",
+      "Prefer Tag for status — it is compact."
+    ]
+  }
+}
