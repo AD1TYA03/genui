@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="genui">
+  <defs>
+    <linearGradient id="g" x1="80" y1="60" x2="440" y2="460" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#22D3EE"/>
+      <stop offset=".55" stop-color="#8B5CF6"/>
+      <stop offset="1" stop-color="#F472B6"/>
+    </linearGradient>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="512" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#14141F"/>
+      <stop offset="1" stop-color="#0A0A12"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="300" cy="230" r="260" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#8B5CF6" stop-opacity=".35"/>
+      <stop offset="1" stop-color="#8B5CF6" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <rect width="512" height="512" rx="116" fill="url(#bg)"/>
+  <rect width="512" height="512" rx="116" fill="url(#glow)"/>
+  <!-- chat bubble that has become an interface -->
+  <path d="M132 112h232a52 52 0 0 1 52 52v164a52 52 0 0 1-52 52H214l-64 52v-52h-18a52 52 0 0 1-52-52V164a52 52 0 0 1 52-52z"
+        fill="none" stroke="url(#g)" stroke-width="22" stroke-linejoin="round"/>
+  <!-- generated components: header, two cards, a button -->
+  <rect x="128" y="158" width="168" height="26" rx="13" fill="url(#g)"/>
+  <rect x="128" y="204" width="112" height="92" rx="18" fill="url(#g)" opacity=".9"/>
+  <rect x="256" y="204" width="112" height="92" rx="18" fill="url(#g)" opacity=".55"/>
+  <rect x="128" y="314" width="96" height="24" rx="12" fill="#F4F4F8"/>
+  <!-- the spark of generation -->
+  <path d="M398 52c6 30 18 42 48 48-30 6-42 18-48 48-6-30-18-42-48-48 30-6 42-18 48-48z" fill="#F4F4F8"/>
+</svg>

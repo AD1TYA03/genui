@@ -1,4 +1,16 @@
-# genui
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/AD1TYA03/genui/main/assets/logo-wordmark-dark.svg">
+    <img alt="genui" src="https://raw.githubusercontent.com/AD1TYA03/genui/main/assets/logo-wordmark-light.svg" width="460">
+  </picture>
+</p>
+
+<p align="center">
+  <a href="https://pypi.org/project/genui-py/"><img alt="PyPI" src="https://img.shields.io/pypi/v/genui-py?color=8B5CF6"></a>
+  <img alt="Python" src="https://img.shields.io/badge/python-3.10%2B-22D3EE">
+  <img alt="License" src="https://img.shields.io/badge/license-MIT-F472B6">
+  <img alt="Telemetry" src="https://img.shields.io/badge/telemetry-none-0A0A12">
+</p>
 
 **Generative UI for Python agents.** Your Python backend streams [OpenUI Lang](https://www.openui.com/docs/openui-lang/overview); your React app renders it as live cards, tables, forms and charts with OpenUI's open-source renderer.
 
@@ -93,6 +105,10 @@ result.errors      # structured errors with hints you can feed back to the model
 ## Status
 
 Alpha. API may change before 1.0. Roadmap: framework adapters (LangGraph, OpenAI Agents SDK, Pydantic AI), local auto-fix loop, Markdown → UI "beautify" mode.
+
+## Brand
+
+Logo files are in [`assets/`](assets): `logo.svg` (icon), `logo-wordmark-{light,dark}.svg`, PNG sizes, and `social-preview.png` (1280×640) for the GitHub repo card.
 
 ## License
 
