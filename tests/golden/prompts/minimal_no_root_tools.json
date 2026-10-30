@@ -1,0 +1,9 @@
+{
+  "library": "tests/golden/libraries/minimal.json",
+  "options": {
+    "tools": [
+      "x"
+    ],
+    "editMode": true
+  }
+}

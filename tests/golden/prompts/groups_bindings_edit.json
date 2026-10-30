@@ -1,0 +1,7 @@
+{
+  "library": "tests/golden/libraries/groups.json",
+  "options": {
+    "bindings": true,
+    "editMode": true
+  }
+}

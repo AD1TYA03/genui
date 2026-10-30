@@ -1,0 +1,9 @@
+{
+  "library": "spec/fixtures/1.0/library.json",
+  "options": {
+    "tools": [
+      "a_tool"
+    ],
+    "builtinFunctions": false
+  }
+}

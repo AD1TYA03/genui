@@ -1,0 +1,43 @@
+{
+  "library": "tests/golden/libraries/bindings.json",
+  "options": {
+    "tools": [
+      {
+        "name": "weird",
+        "description": "Keys that look like array indexes",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "b": {
+              "type": "string"
+            },
+            "10": {
+              "type": "number"
+            },
+            "2": {
+              "type": "boolean"
+            },
+            "a": {}
+          },
+          "required": [
+            "2"
+          ]
+        },
+        "outputSchema": {
+          "type": "object",
+          "properties": {
+            "z": {
+              "type": "string"
+            },
+            "1": {
+              "type": "number"
+            },
+            "0": {
+              "type": "array"
+            }
+          }
+        }
+      }
+    ]
+  }
+}

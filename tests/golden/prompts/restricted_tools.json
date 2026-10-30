@@ -1,0 +1,19 @@
+{
+  "library": "tests/golden/libraries/restricted.json",
+  "options": {
+    "toolCalls": true,
+    "bindings": false,
+    "tools": [
+      {
+        "name": "t",
+        "inputSchema": {},
+        "outputSchema": {
+          "type": "array",
+          "items": {
+            "type": "number"
+          }
+        }
+      }
+    ]
+  }
+}

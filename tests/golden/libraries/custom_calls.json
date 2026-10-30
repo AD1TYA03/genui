@@ -1,0 +1,171 @@
+{
+  "root": "Card",
+  "components": {
+    "Card": {
+      "signature": "Card(title: string, children?: Text[])",
+      "description": "A titled container"
+    },
+    "Text": {
+      "signature": "Text(text: string)",
+      "description": "A run of text"
+    }
+  },
+  "functions": {
+    "Percent": {
+      "signature": "Percent(part: number, total: number, digits?: number) → string",
+      "description": "Format part / total as a percentage"
+    },
+    "Join": {
+      "signature": "Join(items: string[], sep?: string)",
+      "description": ""
+    }
+  },
+  "actions": {
+    "CopyToClipboard": {
+      "signature": "CopyToClipboard(text: string)",
+      "description": "Copy text to the clipboard"
+    },
+    "Track": {
+      "signature": "Track(event: string, props?: Record<string, any>)",
+      "description": "Send an analytics event"
+    }
+  },
+  "schema": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "Card": {
+        "$ref": "#/$defs/Card"
+      },
+      "Text": {
+        "$ref": "#/$defs/Text"
+      }
+    },
+    "required": [
+      "Card",
+      "Text"
+    ],
+    "additionalProperties": false,
+    "$defs": {
+      "Card": {
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string"
+          },
+          "children": {
+            "type": "array",
+            "items": {
+              "$ref": "#/$defs/Text"
+            }
+          }
+        },
+        "required": [
+          "title"
+        ],
+        "additionalProperties": false,
+        "description": "A titled container"
+      },
+      "Text": {
+        "type": "object",
+        "properties": {
+          "text": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "text"
+        ],
+        "additionalProperties": false,
+        "description": "A run of text"
+      }
+    },
+    "functions": {
+      "Percent": {
+        "description": "Format part / total as a percentage",
+        "params": {
+          "type": "object",
+          "properties": {
+            "part": {
+              "type": "number"
+            },
+            "total": {
+              "type": "number"
+            },
+            "digits": {
+              "type": "number"
+            }
+          },
+          "required": [
+            "part",
+            "total"
+          ],
+          "additionalProperties": false
+        },
+        "returns": {
+          "type": "string"
+        }
+      },
+      "Join": {
+        "description": "",
+        "params": {
+          "type": "object",
+          "properties": {
+            "items": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "sep": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "items"
+          ],
+          "additionalProperties": false
+        }
+      }
+    },
+    "actions": {
+      "CopyToClipboard": {
+        "description": "Copy text to the clipboard",
+        "params": {
+          "type": "object",
+          "properties": {
+            "text": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "text"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "Track": {
+        "description": "Send an analytics event",
+        "params": {
+          "type": "object",
+          "properties": {
+            "event": {
+              "type": "string"
+            },
+            "props": {
+              "type": "object",
+              "propertyNames": {
+                "type": "string"
+              },
+              "additionalProperties": {}
+            }
+          },
+          "required": [
+            "event"
+          ],
+          "additionalProperties": false
+        }
+      }
+    }
+  }
+}
