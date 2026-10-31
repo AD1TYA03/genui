@@ -1,6 +1,8 @@
 # Changelog
 
-## Unreleased
+## 0.2.0 — 2026-10-31
+
+genui-py 0.2.0 and genui-react 0.2.0.
 
 **New:**
 

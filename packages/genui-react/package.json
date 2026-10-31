@@ -1,6 +1,6 @@
 {
   "name": "genui-react",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "description": "React components for genui: drop-in generative UI chat and renderer for genui-py backends (AG-UI streaming, OpenUI Lang).",
   "license": "MIT",
   "author": "Aditya Kumar Singh",

@@ -1,6 +1,6 @@
 [project]
 name = "genui-py"
-version = "0.1.2"
+version = "0.2.0"
 description = "Generative UI for Python agents. Stream OpenUI Lang to any React frontend — free, self-hosted, zero telemetry."
 readme = "README.md"
 license = "MIT"
