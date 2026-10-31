@@ -34,5 +34,8 @@
       "sharp",
       "unrs-resolver"
     ]
+  },
+  "overrides": {
+    "katex": "^0.19.1"
   }
 }

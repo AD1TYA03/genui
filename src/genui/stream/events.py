@@ -2,11 +2,12 @@
 
 Everything genui streams goes through these few events. Adapters turn whatever your agent yields
 (plain strings, OpenAI chunks, Anthropic events, or these events) into them, so the encoders in
-:mod:`genui.stream.agui` and :mod:`genui.stream.openai` never care where text came from.
+:mod:`genui.stream.encoders` never care where text came from.
 """
 
 from __future__ import annotations
 
+import asyncio
 import inspect
 from dataclasses import dataclass
 from typing import Any, AsyncIterable, AsyncIterator, Iterable, Union
@@ -54,16 +55,37 @@ EVENT_TYPES = (TextDelta, ToolCallStart, ToolCallArgs, ToolCallEnd, ToolResult, 
 Source = Union[AsyncIterable[Any], Iterable[Any]]
 
 
+_DONE = object()
+
+
 async def aiter_any(source: Source) -> AsyncIterator[Any]:
-    """Iterate a sync or async iterable (or an awaitable returning one) asynchronously."""
+    """Iterate a sync or async iterable (or an awaitable returning one) asynchronously.
+
+    A sync iterator (a generator, a sync OpenAI/Anthropic stream) is stepped in a worker
+    thread, so a slow network read never blocks the event loop and every other request.
+    In-memory sequences (list, tuple, str) are read directly.
+    """
     if inspect.isawaitable(source):
         source = await source  # type: ignore[assignment]
     if hasattr(source, "__aiter__"):
         async for item in source:  # type: ignore[union-attr]
             yield item
-    else:
-        for item in source:  # type: ignore[union-attr]
+        return
+    if isinstance(source, (list, tuple, str)):
+        for item in source:
             yield item
+        return
+    it = iter(source)  # type: ignore[arg-type]
+    try:
+        while True:
+            item = await asyncio.to_thread(next, it, _DONE)
+            if item is _DONE:
+                return
+            yield item
+    finally:
+        close = getattr(it, "close", None)
+        if close is not None:
+            await asyncio.to_thread(close)
 
 
 def _get(obj: Any, key: str, default: Any = None) -> Any:
@@ -194,7 +216,7 @@ class _Normalizer:
                 idx = _get(tc, "index", 0)
                 tid = _get(tc, "id")
                 fn = _get(tc, "function")
-                if tid:
+                if tid and self.tool_ids.get(idx) != tid:  # some servers repeat the id on every chunk
                     self.tool_ids[idx] = tid
                     out.append(ToolCallStart(tid, _get(fn, "name", "") or ""))
                 args = _get(fn, "arguments") if fn is not None else None

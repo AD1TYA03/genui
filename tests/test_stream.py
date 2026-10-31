@@ -39,6 +39,8 @@ async def test_agent_exception_becomes_run_error():
         yield "a"
         raise RuntimeError("model down")
     out = events(await collect(to_agui(agent())))
+    assert out[-1] == {"type": "RUN_ERROR", "message": "The agent failed. Please try again."}
+    out = events(await collect(to_agui(agent(), expose_errors=True)))
     assert out[-1] == {"type": "RUN_ERROR", "message": "model down"}
 
 
@@ -55,7 +57,7 @@ async def test_openai_chunks_from_openai_and_anthropic_shapes():
 
 
 async def test_unknown_item_type_reports_error():
-    out = events(await collect(to_agui([object()])))
+    out = events(await collect(to_agui([object()], expose_errors=True)))
     assert out[-1]["type"] == "RUN_ERROR" and "can't stream" in out[-1]["message"]
 
 

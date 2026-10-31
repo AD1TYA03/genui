@@ -5,7 +5,7 @@ sections 2.3, 3.6, 8.4)."""
 from __future__ import annotations
 
 from dataclasses import dataclass, field, replace
-from typing import Any
+from typing import Any, NamedTuple
 
 from .ast import (
     AST, Arr, Assign, BinOp, Bool, Comp, Index, Member, Node, Null, Num, Obj, Ph, Ref,
@@ -21,6 +21,21 @@ from .validation import (
 from .tsjson import contains_dynamic, is_element_like
 from .values import Element
 
+#: Most AST nodes one parse may materialize. References are inlined, so a program can
+#: double its size with every line (``a1 = [a0, a0]``, ``a2 = [a1, a1]``, ...); this cap
+#: stops a few hundred bytes from taking minutes and gigabytes. Real UIs use a few thousand.
+MAX_NODES = 200_000
+
+
+class ProgramTooLarge(Exception):
+    """The program expands past :data:`MAX_NODES` nodes."""
+
+    def __init__(self) -> None:
+        super().__init__(
+            f"program expands to more than {MAX_NODES:,} values (references are inlined); "
+            "reuse fewer references or send less data"
+        )
+
 
 @dataclass
 class MaterializeCtx(IssueCtx):
@@ -30,6 +45,19 @@ class MaterializeCtx(IssueCtx):
     visited: set[str] = field(default_factory=set)
     #: value statement ids not yet reached; what remains are orphans
     unreached: dict[str, None] | None = None
+    #: nodes left before :class:`ProgramTooLarge`
+    budget: int = MAX_NODES
+    #: Streaming only: materialized values of finished statements, reused across snapshots
+    #: (see :class:`RefCache`). ``stable`` maps each finished statement to its AST.
+    cache: dict[tuple[str, bool], CachedRef] | None = None
+    stable: dict[str, AST] | None = None
+    #: (name, target) of every statement resolved so far, in order
+    trail: list[tuple[str, AST]] = field(default_factory=list)
+
+    def spend(self) -> None:
+        self.budget -= 1
+        if self.budget < 0:
+            raise ProgramTooLarge
 
 
 # ─── issue helpers ─────────────────────────────────────────────────────────
@@ -77,6 +105,43 @@ def _excess_issue(ctx: MaterializeCtx, name: str, params: list[ParamDef], got: i
 # ─── references ────────────────────────────────────────────────────────────
 
 
+class CachedRef(NamedTuple):
+    """A statement's materialized value and everything resolving it did to the context."""
+
+    value: Any
+    deps: tuple[tuple[str, AST], ...]  # statements it resolved (itself first), with their ASTs
+    errors: tuple[Any, ...]
+    spent: int
+
+
+def _cache_hit(name: str, target: AST, ctx: MaterializeCtx) -> CachedRef | None:
+    hit = ctx.cache.get((name, ctx.partial)) if ctx.cache is not None else None
+    if hit is None:
+        return None
+    syms = ctx.syms
+    for dep, ast in hit.deps:
+        if syms.get(dep) is not ast or dep in ctx.visited:
+            return None
+    return hit
+
+
+def _replay(name: str, hit: CachedRef, ctx: MaterializeCtx) -> Any:
+    ctx.budget -= hit.spent
+    if ctx.budget < 0:
+        raise ProgramTooLarge
+    ctx.errors.extend(replace(e) for e in hit.errors)
+    ctx.trail.extend(hit.deps)
+    if ctx.unreached is not None:
+        for dep, _ in hit.deps:
+            ctx.unreached.pop(dep, None)
+    value = hit.value
+    if isinstance(value, Element):
+        value.statement_id = name
+    elif is_element_like(value):
+        value["statementId"] = name
+    return value
+
+
 def _resolve_ref(name: str, ctx: MaterializeCtx, mode: str) -> Any:
     if name in ctx.visited or name not in ctx.syms:
         ctx.unres.append(name)
@@ -86,9 +151,15 @@ def _resolve_ref(name: str, ctx: MaterializeCtx, mode: str) -> Any:
         ctx.unreached.pop(name, None)
     if isinstance(target, Comp) and is_reserved_call(target.name):
         return RuntimeRef(name, "mutation" if target.name == "Mutation" else "query")
+    if mode == "value" and ctx.cache is not None:
+        hit = _cache_hit(name, target, ctx)
+        if hit is not None:
+            return _replay(name, hit, ctx)
     ctx.visited.add(name)
     prev = ctx.current_statement_id
     ctx.current_statement_id = name
+    marks = (len(ctx.errors), len(ctx.unres), len(ctx.trail), ctx.budget)
+    ctx.trail.append((name, target))
     try:
         if mode == "value":
             result = materialize_value(target, ctx)
@@ -96,11 +167,25 @@ def _resolve_ref(name: str, ctx: MaterializeCtx, mode: str) -> Any:
                 result.statement_id = name
             elif is_element_like(result):
                 result["statementId"] = name  # element-shaped data, as the reference tags it
+            if ctx.cache is not None:
+                _remember(name, result, marks, ctx)
             return result
         return materialize_expr(target, ctx)
     finally:
         ctx.current_statement_id = prev
         ctx.visited.discard(name)
+
+
+def _remember(name: str, result: Any, marks: tuple[int, int, int, int], ctx: MaterializeCtx) -> None:
+    """Cache a value that depends only on finished statements and resolved every reference."""
+    errors_at, unres_at, trail_at, budget_at = marks
+    if len(ctx.unres) != unres_at or ctx.stable is None:
+        return  # a reference is missing (it may arrive later) or a cycle was cut
+    deps = tuple(ctx.trail[trail_at:])
+    stable = ctx.stable
+    if all(stable.get(dep) is ast for dep, ast in deps):
+        ctx.cache[(name, ctx.partial)] = CachedRef(  # type: ignore[index]
+            result, deps, tuple(ctx.errors[errors_at:]), budget_at - ctx.budget)
 
 
 # ─── calls ─────────────────────────────────────────────────────────────────
@@ -211,6 +296,7 @@ def _materialize_lazy_builtin(node: Comp, ctx: MaterializeCtx, scoped: frozenset
 
 
 def _expr(node: AST, ctx: MaterializeCtx, scoped: frozenset[str]) -> AST:
+    ctx.spend()
     if isinstance(node, Ref):
         return node if node.n in scoped else _resolve_ref(node.n, ctx, "expr")
     if isinstance(node, Ph):
@@ -265,6 +351,7 @@ def materialize_value(node: AST, ctx: MaterializeCtx) -> Any:
     expressions and calls, plain values for literals, and None for dropped or
     unresolved values.
     """
+    ctx.spend()
     if isinstance(node, Ref):
         return _resolve_ref(node.n, ctx, "value")
     if isinstance(node, (Str, Num, Bool)):
