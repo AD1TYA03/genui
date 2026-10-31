@@ -11,7 +11,7 @@ from .prompt import system_prompt
 from .run import RunInput, RunInputError, parse_run_input
 from .stream import encode, normalize
 
-__version__ = "0.1.2"
+__version__ = "0.2.0"
 
 __all__ = [
     "Library",
