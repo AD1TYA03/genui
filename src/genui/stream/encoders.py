@@ -9,6 +9,7 @@ Both yield ready-to-send SSE strings (``"data: {...}\\n\\n"``).
 from __future__ import annotations
 
 import json
+import logging
 import time
 import uuid
 from typing import Any, AsyncIterator, Iterator, Literal
@@ -26,6 +27,17 @@ from .events import (
 
 Format = Literal["ag-ui", "openai"]
 
+log = logging.getLogger("genui")
+
+#: What the browser sees when the agent raises, unless ``expose_errors=True``.
+GENERIC_ERROR = "The agent failed. Please try again."
+
+
+def _failure(e: Exception, expose: bool) -> str:
+    """Log the exception; the message to send the client."""
+    log.error("genui: agent stream failed", exc_info=e)
+    return (str(e) or type(e).__name__) if expose else GENERIC_ERROR
+
 
 def sse(data: Any) -> str:
     return f"data: {data if isinstance(data, str) else json.dumps(data, ensure_ascii=False, separators=(',', ':'))}\n\n"
@@ -41,8 +53,15 @@ async def to_agui(
     thread_id: str | None = None,
     run_id: str | None = None,
     message_id: str | None = None,
+    expose_errors: bool = False,
 ) -> AsyncIterator[str]:
-    """Encode a stream as AG-UI SSE: RUN_STARTED … TEXT_MESSAGE_* / TOOL_CALL_* … RUN_FINISHED."""
+    """Encode a stream as AG-UI SSE: RUN_STARTED … TEXT_MESSAGE_* / TOOL_CALL_* … RUN_FINISHED.
+
+    An exception in ``source`` is logged (logger ``"genui"``) and sent as ``RUN_ERROR`` with a
+    generic message, so internals (keys, URLs, stack details) never reach the browser. Pass
+    ``expose_errors=True`` in development to send the exception text. Explicit
+    :class:`StreamError` events are always sent as written.
+    """
     thread_id, run_id = thread_id or _id(), run_id or _id()
     message_id = message_id or _id()
     yield sse({"type": "RUN_STARTED", "threadId": thread_id, "runId": run_id})
@@ -88,7 +107,7 @@ async def to_agui(
                 yield sse({"type": "RUN_ERROR", "message": ev.message, **({"code": ev.code} if ev.code else {})})
                 return
     except Exception as e:  # surface agent failures to the UI instead of a dead stream
-        yield sse({"type": "RUN_ERROR", "message": str(e) or type(e).__name__})
+        yield sse({"type": "RUN_ERROR", "message": _failure(e, expose_errors)})
         return
     for tid in open_tools:
         yield sse({"type": "TOOL_CALL_END", "toolCallId": tid})
@@ -97,8 +116,11 @@ async def to_agui(
     yield sse({"type": "RUN_FINISHED", "threadId": thread_id, "runId": run_id})
 
 
-async def to_openai(source: Source, *, model: str = "genui") -> AsyncIterator[str]:
-    """Encode a stream as OpenAI Chat Completions SSE chunks, ending with ``[DONE]``."""
+async def to_openai(source: Source, *, model: str = "genui", expose_errors: bool = False) -> AsyncIterator[str]:
+    """Encode a stream as OpenAI Chat Completions SSE chunks, ending with ``[DONE]``.
+
+    Exceptions are handled as in :func:`to_agui` (generic message unless ``expose_errors``).
+    """
     cid, created = f"chatcmpl-{uuid.uuid4().hex[:24]}", int(time.time())
     tool_index: dict[str, int] = {}
 
@@ -124,7 +146,7 @@ async def to_openai(source: Source, *, model: str = "genui") -> AsyncIterator[st
                 yield sse("[DONE]")
                 return
     except Exception as e:
-        yield sse({"error": {"message": str(e) or type(e).__name__, "type": "server_error"}})
+        yield sse({"error": {"message": _failure(e, expose_errors), "type": "server_error"}})
         yield sse("[DONE]")
         return
     yield chunk({}, finish)
@@ -152,6 +174,7 @@ def encode_sync(source: Source, format: Format = "ag-ui", **kw: Any) -> Iterator
                 break
     finally:
         loop.run_until_complete(agen.aclose())
+        loop.run_until_complete(loop.shutdown_default_executor())  # sync sources run in its threads
         loop.close()
 
 

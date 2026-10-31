@@ -102,35 +102,75 @@ def strip_fences(text: str) -> str:
 # ─── Comment stripping (parser.ts: stripComments) ──────────────────────────
 
 
+def _strip_line(line: str, in_str: str | None) -> tuple[str, str | None]:
+    """One line of :func:`strip_comments`: the kept text, and the string state after it."""
+    cut = None
+    i = 0
+    n = len(line)
+    while i < n:
+        c = line[i]
+        if in_str:
+            if c == "\\" and i + 1 < n:
+                i += 2
+                continue
+            if c == in_str:
+                in_str = None
+            i += 1
+            continue
+        if c == '"' or c == "'":
+            in_str = c
+        elif c == "/" and i + 1 < n and line[i + 1] == "/":
+            cut = i
+            break
+        elif c == "#":
+            cut = i
+            break
+        i += 1
+    return (line if cut is None else line[:cut].rstrip()), in_str
+
+
 def strip_comments(text: str) -> str:
     """Remove ``//`` and ``#`` comments outside strings, even multi-line strings."""
     in_str: str | None = None
     out_lines: list[str] = []
     for line in text.split("\n"):
-        cut = None
-        i = 0
-        n = len(line)
-        while i < n:
-            c = line[i]
-            if in_str:
-                if c == "\\" and i + 1 < n:
-                    i += 2
-                    continue
-                if c == in_str:
-                    in_str = None
-                i += 1
-                continue
-            if c == '"' or c == "'":
-                in_str = c
-            elif c == "/" and i + 1 < n and line[i + 1] == "/":
-                cut = i
-                break
-            elif c == "#":
-                cut = i
-                break
-            i += 1
-        out_lines.append(line if cut is None else line[:cut].rstrip())
+        kept, in_str = _strip_line(line, in_str)
+        out_lines.append(kept)
     return "\n".join(out_lines)
+
+
+class IncrementalPreprocessor:
+    """:func:`preprocess` for a growing buffer, reprocessing only the new text.
+
+    Comment stripping is line by line (with string state carried across lines), so
+    complete lines are processed once. Fences can change the whole text, so a buffer
+    containing three backticks falls back to the full :func:`preprocess`.
+    """
+
+    def __init__(self) -> None:
+        self._raw_done = 0  # chars of the buffer covered by `_lines` (complete lines + "\n")
+        self._lines: list[str] = []
+        self._joined = ""  # "\n".join(_lines) + "\n" when _lines is not empty
+        self._state: str | None = None
+
+    def __call__(self, buf: str) -> str:
+        if "```" in buf:
+            return preprocess(buf)
+        if len(buf) < self._raw_done:  # not a continuation: start over
+            self.__init__()
+        nl = buf.rfind("\n")
+        if nl + 1 > self._raw_done:
+            added = []
+            state = self._state
+            for line in buf[self._raw_done:nl].split("\n"):
+                kept, state = _strip_line(line, state)
+                added.append(kept)
+            self._lines.extend(added)
+            self._joined += "\n".join(added) + "\n"
+            self._state = state
+            self._raw_done = nl + 1
+        tail, _ = _strip_line(buf[self._raw_done:], self._state)
+        return (self._joined + tail).strip()
 
 
 def preprocess(text: str) -> str:

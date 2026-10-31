@@ -1,7 +1,8 @@
-import { useMemo, type CSSProperties, type ReactNode } from "react";
+import { useEffect, useMemo, type CSSProperties, type ReactNode } from "react";
 import { AgentInterface, openuiLibrary, type AgentInterfaceProps } from "@openuidev/react-ui";
 import type { ChatStorage } from "@openuidev/react-headless";
 import { genuiLLM, type GenUIFormat, type GenUILLM } from "./llm";
+import { guardWindowOpen } from "./safeUrl";
 import { localStorageChat } from "./storage";
 import type { GenUIActionEvent, GenUILibrary, GenUIStarter, GenUITheme, GenUIThemeProps } from "./types";
 
@@ -39,6 +40,12 @@ export interface GenUIChatProps {
   className?: string;
   /** Inline style for the wrapping element (defaults to filling its parent). */
   style?: CSSProperties;
+  /**
+   * Check links the model opens with `@OpenUrl` (default `true`): only `http(s)`, `mailto`,
+   * `tel` and relative URLs open, always with `noopener`. While mounted this wraps
+   * `window.open` for the page, because OpenUI's chat opens links without these checks.
+   */
+  safeLinks?: boolean;
   /** Advanced: slot children forwarded to OpenUI's AgentInterface (Sidebar, Welcome, ...). */
   children?: ReactNode;
 }
@@ -72,8 +79,11 @@ export function GenUIChat({
   onAction,
   className,
   style,
+  safeLinks = true,
   children,
 }: GenUIChatProps) {
+  useEffect(() => (safeLinks ? guardWindowOpen() : undefined), [safeLinks]);
+
   // Object props are usually inline literals; key memoisation on their content.
   const headersKey = headers ? JSON.stringify(headers) : "";
   const bodyKey = body ? JSON.stringify(body) : "";

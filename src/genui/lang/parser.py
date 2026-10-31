@@ -13,8 +13,8 @@ from .evaluator import EvalContext, evaluate, evaluate_root
 from .expressions import parse_expression
 from .lexer import T
 from .library import CompiledLibrary, CustomFunction, compile_library
-from .materialize import MaterializeCtx, materialize_value, name_raw_call_args
-from .source import RawStatement, autoclose, preprocess, scan_completed, split_statements
+from .materialize import MaterializeCtx, ProgramTooLarge, materialize_value, name_raw_call_args
+from .source import IncrementalPreprocessor, RawStatement, autoclose, preprocess, scan_completed, split_statements
 from .validation import push_issue
 from .tsjson import as_element, is_element_like, ts_json
 from .values import Element
@@ -233,6 +233,8 @@ def build_result(
     incomplete: bool,
     lib: CompiledLibrary,
     partial_ref: tuple[str, set[int]] | None = None,
+    cache: dict | None = None,
+    stable: dict[str, Statement] | None = None,
 ) -> ParseResult:
     entry = _pick_entry(stmts, lib.root)
     entry_id = entry[0] if entry else None
@@ -246,6 +248,8 @@ def build_result(
         syms=syms,
         lib=lib,
         unreached=unreached,
+        cache=cache,
+        stable={sid: st.expr for sid, st in stable.items()} if stable is not None else None,
     )
 
     root: Element | None = None
@@ -283,10 +287,18 @@ def build_result(
             ))
 
     # Auto-declare: a $name read anywhere but not declared gets the default null.
+    refs_memo = cache.setdefault("state_refs", {}) if cache is not None else None
     for s in stmts.values():
         nodes = s.expr.args if s.kind in ("query", "mutation") else [s.expr]
         for node in nodes:
-            for dep in state_refs(node):
+            if refs_memo is None or stable is None or stable.get(s.id) is not s:
+                refs = state_refs(node)
+            else:  # ASTs of finished statements never change: scan each one once
+                memo = refs_memo.get(id(node))
+                if memo is None or memo[0] is not node:
+                    memo = refs_memo[id(node)] = (node, state_refs(node))
+                refs = memo[1]
+            for dep in refs:
                 if partial_ref and dep == partial_ref[0] and id(s) in partial_ref[1]:
                     continue
                 state.setdefault(dep, None)
@@ -331,6 +343,9 @@ def build_result(
 
 
 def _parse_exception(lib: CompiledLibrary, exc: Exception) -> ParseResult:
+    if isinstance(exc, ProgramTooLarge):
+        return _empty(lib, False, [OpenUIError(source="parser", code="parse-exception",
+                                               message=f"The parser stopped: {exc}")])
     err = OpenUIError(source="parser", code="parse-exception",
                       message=f"The parser failed: {type(exc).__name__}: {exc}")
     return _empty(lib, False, [err])
@@ -390,6 +405,7 @@ class StreamParser:
         functions: Mapping[str, CustomFunction] | None = None,
     ) -> None:
         self.library = compile_library(library, functions)
+        self._incremental = True  # False: rebuild everything per chunk (tests compare the two)
         self._reset()
 
     def _reset(self) -> None:
@@ -399,6 +415,9 @@ class StreamParser:
         self._completed: dict[str, Statement] = {}
         self._completed_count = 0
         self._ended = False
+        # Incremental work: complete lines are cleaned once, finished statements built once.
+        self._pre = IncrementalPreprocessor()
+        self._cache: dict = {}
 
     @property
     def text(self) -> str:
@@ -422,11 +441,12 @@ class StreamParser:
         return self._result(self._ended)
 
     def _refresh(self) -> None:
-        nxt = preprocess(self._buf)
+        nxt = self._pre(self._buf) if self._incremental else preprocess(self._buf)
         if not nxt.startswith(self._cleaned[: self._completed_end]):
             self._completed_end = 0
             self._completed.clear()
             self._completed_count = 0
+            self._cache.clear()
         self._cleaned = nxt
 
     def _result(self, complete: bool) -> ParseResult:
@@ -452,7 +472,7 @@ class StreamParser:
         if not body:
             if self._completed_count == 0:
                 return _empty(lib, True)
-            return build_result(self._completed, False, lib)
+            return build_result(self._completed, False, lib, cache=self._cache if self._incremental else None, stable=self._completed if self._incremental else None)
 
         offset = pending_start + (len(pending) - len(pending.lstrip()))
         closed, incomplete = autoclose(body)
@@ -461,7 +481,7 @@ class StreamParser:
         if not parsed:
             if self._completed_count == 0:
                 return _empty(lib, incomplete)
-            return build_result(self._completed, incomplete, lib)
+            return build_result(self._completed, incomplete, lib, cache=self._cache if self._incremental else None, stable=self._completed if self._incremental else None)
 
         merged = dict(self._completed)
         pending_ids: set[int] = set()
@@ -481,4 +501,4 @@ class StreamParser:
                 earlier = body[: -len(tail)] if body.endswith(tail) else None
                 if earlier is not None and not re.search(re.escape(tail) + r"(?!\w)", earlier):
                     partial_ref = (tail, pending_ids)
-        return build_result(merged, incomplete, lib, partial_ref)
+        return build_result(merged, incomplete, lib, partial_ref, cache=self._cache if self._incremental else None, stable=self._completed if self._incremental else None)

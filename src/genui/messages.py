@@ -33,6 +33,7 @@ __all__ = [
     "build_message",
     "strip_markers",
     "action_user_message",
+    "CLIENT_ROLES",
     "to_model_messages",
 ]
 
@@ -164,19 +165,39 @@ def _text_of(content: Any) -> str:
     return "" if content is None else str(content)
 
 
-def to_model_messages(messages: Iterable[Mapping[str, Any]]) -> list[dict[str, Any]]:
+#: Roles :func:`to_model_messages` keeps by default. The browser can send any role, so
+#: ``system``, ``developer`` and ``tool`` turns from it are dropped unless you opt in.
+CLIENT_ROLES: tuple[str, ...] = ("user", "assistant")
+
+
+def to_model_messages(
+    messages: Iterable[Mapping[str, Any]],
+    *,
+    roles: Iterable[str] = CLIENT_ROLES,
+    tool_calls: bool = False,
+) -> list[dict[str, Any]]:
     """Turn the history the frontend sends into plain chat messages for an LLM (section 6.3, 7.5).
 
     - assistant turns become their program text, markers and stored form state removed
     - a click turn becomes ``<message>\\ncontext and form values = <json>``
     - everything else passes through with markers stripped
 
+    **The history comes from the browser, so it is untrusted.** By default only ``user`` and
+    ``assistant`` turns are kept and ``toolCalls`` are dropped: otherwise anyone can add their
+    own system prompt or fake a tool result. Pass ``roles=("user", "assistant", "tool")`` and
+    ``tool_calls=True`` only if you verify those turns (e.g. against server-side history).
+
     Accepts AG-UI messages (``{"role", "content", "toolCalls"?, ...}``) or OpenAI-style dicts.
     Returns ``[{"role": ..., "content": str}, ...]``; tool messages keep ``tool_call_id``.
     """
+    allowed = frozenset(roles)
     out: list[dict[str, Any]] = []
     for m in messages:
+        if not isinstance(m, Mapping):
+            continue
         role = m.get("role")
+        if role not in allowed:
+            continue
         text = _text_of(m.get("content"))
         if role in ("assistant", "user", "system", "developer") and PREFIX in text:
             parsed = parse_message(text)
@@ -188,7 +209,7 @@ def to_model_messages(messages: Iterable[Mapping[str, Any]]) -> list[dict[str, A
             tid = m.get("toolCallId") or m.get("tool_call_id")
             if tid:
                 msg["tool_call_id"] = tid
-        if role == "assistant" and (m.get("toolCalls") or m.get("tool_calls")):
+        if tool_calls and role == "assistant" and (m.get("toolCalls") or m.get("tool_calls")):
             msg["tool_calls"] = m.get("toolCalls") or m.get("tool_calls")
         out.append(msg)
     return out

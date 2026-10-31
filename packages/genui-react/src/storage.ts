@@ -13,7 +13,31 @@ const newId = (): string =>
     : `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
 
 /**
+ * Delete every thread and message `localStorageChat` saved under `key` (default `"genui"`).
+ *
+ * Call it on logout. History is stored as plain text, readable by any script on the same
+ * origin, so apps handling sensitive data should prefer server storage or `storageKey={false}`.
+ */
+export function clearChatHistory(key = "genui"): void {
+  try {
+    const ls = globalThis.localStorage;
+    if (!ls) return;
+    const doomed: string[] = [];
+    for (let i = 0; i < ls.length; i++) {
+      const k = ls.key(i);
+      if (k && (k === `${key}:threads` || k.startsWith(`${key}:messages:`))) doomed.push(k);
+    }
+    for (const k of doomed) ls.removeItem(k);
+  } catch {
+    // storage disabled
+  }
+}
+
+/**
  * Persist chat threads and messages in `window.localStorage` under `key`.
+ *
+ * ⚠️ Stored as plain text: any script on the origin can read it. Clear it on logout with
+ * {@link clearChatHistory}.
  *
  * Returns a wrapped `llm` (it records each streamed reply once complete) and a
  * `storage` object for `<GenUIChat>` / OpenUI's `AgentInterface`. Safe to call

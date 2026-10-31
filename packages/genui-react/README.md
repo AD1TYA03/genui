@@ -33,6 +33,19 @@ export default function App() {
 
 `url` is the genui-py endpoint. It receives a POST with `{ threadId, runId, messages, tools, context }` and streams AG-UI events (SSE) back. Threads are saved in `localStorage`. See [`examples/fastapi-react`](https://github.com/AD1TYA03/genui/tree/main/examples/fastapi-react) for a full FastAPI + React app.
 
+## Light entry: `genui-react/core`
+
+The main entry includes OpenUI's default component library: charts, tables, code highlighting and math, about 970 KB gzipped with React. If you render your own components, import from `genui-react/core`. It's about **210 KB** with React, measured with a custom component library.
+
+```tsx
+import { GenUIRenderer, createLibrary, defineComponent, genuiLLM, ChatProvider } from "genui-react/core";
+
+const library = createLibrary({ components: [Deal, Pipeline /* yours */], root: "Stack" });
+<GenUIRenderer response={program} library={library} />;
+```
+
+`core` exports `GenUIRenderer` (with `library` required), `genuiLLM`, `localStorageChat`, `clearChatHistory`, `safeUrl`, `safeOpenUrl`, `createLibrary`, `defineComponent`, `defineAction`, `buildMessage`, `parseMessage`, and the headless chat state (`ChatProvider`, `useThread`, `useThreadList`, `restStorage`). It never imports `@openuidev/react-ui`, and a test checks this.
+
 ## API
 
 ### `<GenUIChat />`
@@ -90,6 +103,18 @@ Props: `response: string | null`, `library?`, `onAction?`, `isStreaming?`, `init
 - Types: `GenUIChatProps`, `GenUIRendererProps`, `GenUILLMOptions`, `GenUILLM`, `GenUIFormat`, `GenUILibrary`, `GenUIActionEvent`, `GenUITheme`, `GenUIThemeProps`, `GenUIStarter`, `GenUIStorage`, `GenUIMessage`, `GenUIThread`, `GenUIComponentProps`, `GenUIPromptOptions`, `GenUIRestStorageOptions`.
 
 Import from `genui-react`, not from `@openuidev/*` directly. The internals may change in later versions.
+
+## Security
+
+- **Safe links.** While mounted, `GenUIChat` routes `window.open` through `safeUrl()`: `@OpenUrl` links from the model open only for `http(s)`, `mailto`, `tel` and relative URLs, always with `noopener,noreferrer`. OpenUI's chat opens links without these checks. Turn this off with `safeLinks={false}`. With `GenUIRenderer`, `@OpenUrl` reaches your `onAction`: open it with `safeOpenUrl(event.params?.url)`.
+- **Stored history.** `localStorageChat` stores threads as plain text that any script on your origin can read. Call `clearChatHistory(storageKey)` on logout. For sensitive data, use `storageKey={false}` or your own `storage`.
+- **Dependency advisories.** OpenUI's dependencies pull in an old `katex` (GHSA-238p-pmpm-9mq7). Fix it with an npm override in your app's `package.json` (overrides only apply in apps, not libraries):
+
+  ```json
+  "overrides": { "katex": "^0.19.1" }
+  ```
+
+  They also pull in `zod` 3.x through `@ag-ui/core` (GHSA-mrhx-c7xc-m3w5, memory exhaustion on oversized input). Here zod only validates the SSE events your own backend sends, so exploiting it needs control of your server's stream. Don't override it to zod 4: the app still runs, but `@ag-ui/core`'s types turn into `unknown`. The fix has to come from an OpenUI release on `@ag-ui/core` 1.x.
 
 ## Dev tools
 

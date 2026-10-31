@@ -1,11 +1,6 @@
 import type { ConversationStarterProps, ThemeProps } from "@openuidev/react-ui";
-import type { ActionEvent, Library } from "@openuidev/react-lang";
 
-/** A component library that tells the model which components it may render. */
-export type GenUILibrary = Library;
-
-/** Event emitted when a rendered component triggers an action (button click, form submit, ...). */
-export type GenUIActionEvent = ActionEvent;
+export type { GenUIActionEvent, GenUILibrary } from "./coreTypes";
 
 /** Full theme configuration (mode, light/dark overrides, CSS scope). */
 export type GenUIThemeProps = Omit<ThemeProps, "children">;

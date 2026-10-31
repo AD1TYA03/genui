@@ -30,7 +30,7 @@ from typing import Any, AsyncIterator, Union
 
 from genui import Library
 from genui.lang import parse
-from genui.stream.events import ToolCallArgs, ToolCallEnd, ToolCallStart, ToolResult
+from genui.stream.events import StreamError, ToolCallArgs, ToolCallEnd, ToolCallStart, ToolResult
 
 from tools import TOOL_SCHEMAS, run_tool
 
@@ -168,7 +168,7 @@ def prepare_history(messages: list[dict[str, Any]]) -> list[dict[str, Any]]:
 
 # ─── Agent loop ──────────────────────────────────────────────────────────────
 
-Item = Union[str, ToolCallStart, ToolCallArgs, ToolCallEnd, ToolResult]
+Item = Union[str, ToolCallStart, ToolCallArgs, ToolCallEnd, ToolResult, StreamError]
 
 
 def _get(obj: Any, key: str, default: Any = None) -> Any:
@@ -215,7 +215,13 @@ async def run_agent(
 ) -> AsyncIterator[Item]:
     """Run the concierge on the chat history; yield OpenUI Lang text and tool events."""
     today = today or date.today()
-    client = client or get_client()
+    if client is None:
+        try:
+            client = get_client()
+        except RuntimeError:
+            # A deliberate, safe message: genui hides raw exception text from the browser.
+            yield StreamError("The server has no Gemini API key. Set GEMINI_API_KEY and restart it.")
+            return
     model = model or MODEL
     messages: list[dict[str, Any]] = [
         {"role": "system", "content": build_system_prompt(today)},

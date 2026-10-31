@@ -8,7 +8,8 @@
 export { GenUIChat, type GenUIChatProps } from "./GenUIChat";
 export { GenUIRenderer, type GenUIRendererProps } from "./GenUIRenderer";
 export { genuiLLM, type GenUIFormat, type GenUILLM, type GenUILLMOptions } from "./llm";
-export { localStorageChat } from "./storage";
+export { clearChatHistory, localStorageChat } from "./storage";
+export { safeOpenUrl, safeUrl } from "./safeUrl";
 export type { GenUIActionEvent, GenUILibrary, GenUIStarter, GenUITheme, GenUIThemeProps } from "./types";
 
 // Component libraries and prompt options.

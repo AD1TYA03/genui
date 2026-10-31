@@ -2,7 +2,7 @@ import { copyFileSync, readFileSync, writeFileSync } from "node:fs";
 import { defineConfig } from "tsup";
 
 export default defineConfig({
-  entry: { index: "src/index.ts" },
+  entry: { index: "src/index.ts", core: "src/core.ts" },
   format: ["esm"],
   dts: true,
   sourcemap: true,
@@ -18,7 +18,9 @@ export default defineConfig({
       "dist/devtools.js",
       'const g = globalThis;\nif (!g.GENUI_OPENUI_DEVTOOLS) g[Symbol.for("openui.devtools.autoMount")] = true;\n',
     );
-    const index = readFileSync("dist/index.js", "utf8");
-    if (!index.startsWith('import "./devtools.js"')) writeFileSync("dist/index.js", 'import "./devtools.js";\n' + index);
+    for (const entry of ["dist/index.js", "dist/core.js"]) {
+      const code = readFileSync(entry, "utf8");
+      if (!code.startsWith('import "./devtools.js"')) writeFileSync(entry, 'import "./devtools.js";\n' + code);
+    }
   },
 });
